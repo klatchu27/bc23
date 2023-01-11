@@ -1,0 +1,173 @@
+package bot1;
+
+import battlecode.common.*;
+
+import java.util.Random;
+
+public class Carrier {
+
+    static final Random rng = new Random(6147);
+    static final Direction[] directions = {
+            Direction.NORTH,
+            Direction.NORTHEAST,
+            Direction.EAST,
+            Direction.SOUTHEAST,
+            Direction.SOUTH,
+            Direction.SOUTHWEST,
+            Direction.WEST,
+            Direction.NORTHWEST,
+    };
+    static boolean dumpResource = false;
+    static int totalResources = 0, adamantium = 0, mana = 0;
+    static int MAX_RESOURCE = 38;
+    static MapLocation islandLocation = null;
+    static int islandId = -1;
+
+    /**
+     * Run a single turn for a Carrier.
+     * This code is wrapped inside the infinite loop in run(), so it is called once
+     * per turn.
+     */
+    static void runCarrier(RobotController rc) throws GameActionException {
+
+        // get reources info of the carrier
+        adamantium = rc.getResourceAmount(ResourceType.ADAMANTIUM);
+        mana = rc.getResourceAmount(ResourceType.MANA);
+        totalResources = adamantium + mana;
+
+        if (totalResources == 0 && rc.getAnchor() == null) {
+            MapLocation closestHQWithAnchor = Communication.getClosestOwnHQ(rc, -1, 1);
+            if (closestHQWithAnchor != null) {
+                rc.setIndicatorString(String.format("target HQ loc for anchor: (%d,%d)", closestHQWithAnchor.x,
+                        closestHQWithAnchor.y));
+                if (rc.canTakeAnchor(closestHQWithAnchor, Anchor.STANDARD))
+                    rc.takeAnchor(closestHQWithAnchor, Anchor.STANDARD);
+                else {
+                    Pathing.walkTowards(rc, closestHQWithAnchor);
+                    return;
+                }
+            }
+        }
+
+        MapLocation curLoc = rc.getLocation();
+        if (rc.getAnchor() != null) {
+            // If I have an anchor singularly focus on getting it to the first island I see
+
+            try {
+                if (rc.senseAnchor(islandId) != null)
+                    islandLocation = null;
+            } catch (GameActionException e) {
+                islandLocation = null;
+            }
+
+            if (islandLocation == null) {
+                islandLocation = Communication.getClosestIslandLoc(rc, 0);
+            }
+
+            if (islandLocation != null)
+                System.out.println(
+                        String.format("FREE ISLAND FOUND USING COMMS at %d,%d at round:%d", islandLocation.x,
+                                islandLocation.y, rc.readSharedArray(0)));
+
+            if (islandLocation == null) {
+                int[] islands = rc.senseNearbyIslands();
+                for (int id : islands) {
+                    if (rc.senseAnchor(id) == null) {
+                        MapLocation[] thisIslandLocs = rc.senseNearbyIslandLocations(id);
+                        for (MapLocation loc : thisIslandLocs) {
+                            if (islandLocation == null
+                                    || (curLoc.distanceSquaredTo(loc) < curLoc.distanceSquaredTo(islandLocation)))
+                                islandLocation = loc;
+                            islandId = id;
+                        }
+                    }
+                }
+            }
+
+            if (islandLocation == null) {
+                Direction dir = directions[rng.nextInt(directions.length)];
+                if (rc.canMove(dir))
+                    rc.move(dir);
+                return;
+            }
+
+            if (rc.canPlaceAnchor()) {
+                rc.setIndicatorString("Huzzah, placed anchor!");
+                rc.placeAnchor();
+                Communication.updateIslandType(rc);
+                islandId = -1;
+                islandLocation = null;
+            } else {
+                rc.setIndicatorString("Moving my anchor towards " + islandLocation);
+                Pathing.walkTowards(rc, islandLocation);
+                return;
+            }
+
+        }
+
+        // dump resources to headquarters
+        if (totalResources > MAX_RESOURCE || dumpResource) {
+            dumpResource = true;
+
+            int resourceAvailable = 1;
+            if (mana > adamantium)
+                resourceAvailable = 2;
+            MapLocation targetHQLoc = Communication.getClosestOwnHQ(rc, resourceAvailable, 0);
+
+            if (targetHQLoc == null)
+                targetHQLoc = Communication.getClosestOwnHQ(rc, -1, 0);
+
+            boolean t_ad = rc.canTransferResource(targetHQLoc, ResourceType.ADAMANTIUM, adamantium),
+                    t_mn = rc.canTransferResource(targetHQLoc, ResourceType.MANA, mana);
+            if (adamantium == 0)
+                t_ad = false;
+            if (mana == 0)
+                t_mn = false;
+
+            if (t_ad || t_mn) {
+                if (t_ad && adamantium > 0)
+                    rc.transferResource(targetHQLoc, ResourceType.ADAMANTIUM, adamantium);
+                if (rc.canTransferResource(targetHQLoc, ResourceType.MANA, mana) && mana > 0)
+                    rc.transferResource(targetHQLoc, ResourceType.MANA, mana);
+            } else {
+                if (targetHQLoc != null) {
+                    rc.setIndicatorString(String.format("target HQ loc: (%d,%d)", targetHQLoc.x, targetHQLoc.y));
+                    Pathing.walkTowards(rc, targetHQLoc);
+                }
+            }
+
+            // successfully dumped all resources;
+            if (totalResources < 1)
+                dumpResource = false;
+            return;
+        }
+
+        // Try to gather from squares around us.
+        MapLocation me = rc.getLocation();
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                MapLocation wellLocation = new MapLocation(me.x + dx, me.y + dy);
+                if (rc.canCollectResource(wellLocation, -1)) {
+                    rc.collectResource(wellLocation, -1);
+                    rc.setIndicatorString("Collecting, now have, AD:" +
+                            rc.getResourceAmount(ResourceType.ADAMANTIUM) +
+                            " MN: " + rc.getResourceAmount(ResourceType.MANA) +
+                            " EX: " + rc.getResourceAmount(ResourceType.ELIXIR));
+                }
+            }
+        }
+
+        // nearby wells are already sensed at RobotPlayer.run()
+        MapLocation targetLocation = Communication.getClosestWell(rc);
+        // We have a target location! Let's move towards it.
+        if (targetLocation != null) {
+            rc.setIndicatorString(String.format("target loc: (%d,%d)", targetLocation.x, targetLocation.y));
+            Pathing.walkTowards(rc, targetLocation);
+        }
+
+        // Also try to move randomly.
+        Direction dir = directions[rng.nextInt(directions.length)];
+        if (rc.canMove(dir))
+            rc.move(dir);
+    }
+}
