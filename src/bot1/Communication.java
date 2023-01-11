@@ -2,7 +2,7 @@ package bot1;
 
 import battlecode.common.*;
 
-class Communication {
+public strictfp class Communication {
     private static final int NUM_TYPES = 6;
     private static final int MIN_ENEMY_IDX = 49;
     private static final int MIN_WELL_IDX = 37;
@@ -11,6 +11,8 @@ class Communication {
     private static final int MAX_HQ_IDX = 17;
     public static final int MIN_ISLAND_IDX = 19;
     public static final int MAX_ISLAND_IDX = 33;
+    public static final int MIN_EXPLORE_IDX = 33;
+    public static final int MAX_EXPLORE_IDX = 37;
 
     static void reportAlive(RobotController rc) {
         // check if we can write to the shared array b4 reporting
@@ -49,6 +51,86 @@ class Communication {
         } catch (GameActionException e) {
             e.printStackTrace();
             return 0;
+        }
+    }
+
+    static int reportExploreLoc(RobotController rc, MapLocation loc, boolean getIndex) {
+        // check if we can write to the shared array b4 reporting
+        if (!rc.canWriteSharedArray(0, 0))
+            return -1;
+
+        int slot = -1;
+        for (int i = MIN_EXPLORE_IDX; i < MAX_EXPLORE_IDX; i++) {
+            int value;
+            try {
+                value = rc.readSharedArray(i);
+            } catch (GameActionException e) {
+                continue;
+            }
+            final MapLocation m = intToLocation(rc, value);
+            if (m == null && slot == -1) {
+                slot = i;
+            } else if (m != null && loc.distanceSquaredTo(m) <= 20) {
+                return -2;
+            }
+        }
+        if (slot != -1) {
+            try {
+                rc.writeSharedArray(slot, locationToInt(rc, loc));
+                return slot;
+            } catch (GameActionException e) {
+                e.printStackTrace();
+            }
+        }
+        return -1;
+    }
+
+    static MapLocation getClosestExploreLoc(RobotController rc) {
+        MapLocation answer = null;
+        for (int i = MIN_EXPLORE_IDX; i < MAX_EXPLORE_IDX; i++) {
+            final int value;
+            try {
+                value = rc.readSharedArray(i);
+            } catch (GameActionException e) {
+                continue;
+            }
+            final MapLocation m = intToLocation(rc, value);
+            if (m != null && (answer == null
+                    || rc.getLocation().distanceSquaredTo(m) < rc.getLocation().distanceSquaredTo(answer))) {
+                answer = m;
+            }
+        }
+        return answer;
+    }
+
+    /**
+     * clears exploreLocs with 9 unit**2 of curLocation of bot
+     * 
+     * @param rc
+     * @param radius if rc.getLocation().distanceSquaredTo(exploreLoc) < radius then
+     *               it gets cleared
+     */
+    static void clearExploreLoc(RobotController rc, int radius) {
+        // check if we can write to the shared array b4 reporting
+        if (!rc.canWriteSharedArray(0, 0))
+            return;
+        MapLocation curLoc = rc.getLocation();
+        for (int i = MIN_EXPLORE_IDX; i < MAX_EXPLORE_IDX; i++) {
+            int value;
+            try {
+                value = rc.readSharedArray(i);
+            } catch (GameActionException e) {
+                continue;
+            }
+            final MapLocation m = intToLocation(rc, value);
+            if (m == null || curLoc.distanceSquaredTo(m) > radius) { // We might want a stronger check than this
+                continue;
+            }
+            try {
+                rc.writeSharedArray(i, 0);
+            } catch (GameActionException e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -237,6 +319,7 @@ class Communication {
                 }
                 if (slot != -1) {
                     try {
+                        rc.setIndicatorDot(islandLoc, 200, 0, 0);
                         System.out.println(
                                 String.format("Writing island at %d,%d at index:%d", islandLoc.x, islandLoc.y, slot));
                         rc.writeSharedArray(slot, locationToInt(rc, islandLoc) * 4 + islandType);

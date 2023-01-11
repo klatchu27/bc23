@@ -90,7 +90,7 @@ public strictfp class RobotPlayer {
             // the end of the
             // loop, we call Clock.yield(), signifying that we've done everything we want to
             // do.
-
+            rc.setIndicatorDot(new MapLocation(5, 5), 200, 0, 0);
             turnCount += 1; // We have now been alive for one more turn!
 
             if (rc.canWriteSharedArray(0, 0)) {
@@ -134,9 +134,12 @@ public strictfp class RobotPlayer {
                     case LAUNCHER:
                         Launcher.runLauncher(rc);
                         break;
-                    case BOOSTER: // Examplefuncsplayer doesn't use any of these robot types below.
-                    case DESTABILIZER: // You might want to give them a try!
+                    case BOOSTER:
+                        break;// Examplefuncsplayer doesn't use any of these robot types below.
+                    case DESTABILIZER:
+                        break;// You might want to give them a try!
                     case AMPLIFIER:
+                        Amplifier.runAmplifier(rc);
                         break;
                 }
 

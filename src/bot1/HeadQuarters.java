@@ -4,7 +4,7 @@ import battlecode.common.*;
 
 import java.util.Random;
 
-public class HeadQuarters {
+public strictfp class HeadQuarters {
 
     static final Random rng = new Random(6147);
     static final Direction[] directions = {
@@ -42,7 +42,7 @@ public class HeadQuarters {
 
     private static final int NUM_TYPES = 6;
     static int[] troopsAlive = new int[NUM_TYPES];
-    static int[][] minTroops = { { 0, 3, 3, 0, 0, 0 }, { 0, 4, 4, 0, 0, 0 }, { 0, 5, 5, 0, 0, 0 } };
+    static double[] minTroops = { 0.0, 4.0, 1.0, 2.0, 0.0, 0.0 };
 
     // this order is executed in reverse to save bytecode
     static final int[] indexOfTroopsBuildOrder = {
@@ -52,6 +52,8 @@ public class HeadQuarters {
             Index.LAUNCHER.getIndex(),
             Index.CARRIER.getIndex(),
     };
+    static int[][] ExplorationHeatMap = null;
+    static boolean stillExploring = true;
     static int totalResources = 0, adamantium = 0, mana = 0, resourceTypeRequired = 0;
     static int standardAnchors = 0, MIN_STANDARD_ANCHOR = 1;
 
@@ -61,6 +63,8 @@ public class HeadQuarters {
      * per turn.
      */
     static void runHeadquarters(RobotController rc) throws GameActionException {
+
+        addExplorationLoc(rc);
 
         MapLocation curLoc = rc.getLocation();
         adamantium = rc.getResourceAmount(ResourceType.ADAMANTIUM);
@@ -74,6 +78,7 @@ public class HeadQuarters {
             resourceTypeRequired = 1;// if Mn>1.5*Ad then set req to Ad
         if (standardAnchors > 0)
             resourceTypeRequired |= 4;
+        rc.setIndicatorString(String.format("resourceTypeReq: %d", resourceTypeRequired));
         Communication.reportOwnHQ(rc, curLoc, resourceTypeRequired);
 
         // get count of troops alive of each type from last round
@@ -81,9 +86,10 @@ public class HeadQuarters {
             troopsAlive[i] = Communication.getAlive(rc, troopTypes[i]);
         }
 
-        int thresholdIndex = Math.min(totalResources / 200, 2);
+        double thresholdIndex = totalResources / 200.0;
         for (int i = indexOfTroopsBuildOrder.length; --i > 0;)
-            if (troopsAlive[indexOfTroopsBuildOrder[i]] < minTroops[thresholdIndex][indexOfTroopsBuildOrder[i]])
+            if (troopsAlive[indexOfTroopsBuildOrder[i]] < Math.max(1,
+                    Math.floor(minTroops[indexOfTroopsBuildOrder[i]] * thresholdIndex)))
                 if (build(rc, troopTypes[indexOfTroopsBuildOrder[i]]))
                     break;
 
@@ -118,6 +124,41 @@ public class HeadQuarters {
             }
         }
         return false;
+    }
+
+    static void addExplorationLoc(RobotController rc) {
+
+        int width = rc.getMapWidth(), height = rc.getMapHeight();
+        if (ExplorationHeatMap == null) {
+            System.out.println(String.format("Byte code left b4 = %d", Clock.getBytecodesLeft()));
+            ExplorationHeatMap = new int[width][height];
+            System.out.println(String.format("Byte code left after = %d", Clock.getBytecodesLeft()));
+        }
+
+        int slot = -1;
+        outer: while (stillExploring) {
+            for (int x = 0; x < width; x++) {
+                for (int y = 0; y < height; y++) {
+                    if (ExplorationHeatMap[x][y] == 0) {
+
+                        slot = Communication.reportExploreLoc(rc, new MapLocation(x, y), true);
+
+                        // updating heat map with 4*4 unit**2(square distance)
+                        if (slot != -1) {
+                            for (int dx = -4; dx <= 4; dx++) {
+                                for (int dy = -4; dy <= 4; dy++) {
+                                    if (x + dx >= 0 && x + dx < width && y + dy >= 0 && y + dy < height)
+                                        ExplorationHeatMap[x + dx][y + dy] = 1;
+                                }
+                            }
+                        } else
+                            break outer;
+                    }
+                }
+            }
+            stillExploring = false;
+        }
+
     }
 
 }

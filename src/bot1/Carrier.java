@@ -4,7 +4,7 @@ import battlecode.common.*;
 
 import java.util.Random;
 
-public class Carrier {
+public strictfp class Carrier {
 
     static final Random rng = new Random(6147);
     static final Direction[] directions = {
@@ -64,10 +64,9 @@ public class Carrier {
                 islandLocation = Communication.getClosestIslandLoc(rc, 0);
             }
 
-            if (islandLocation != null)
-                System.out.println(
-                        String.format("FREE ISLAND FOUND USING COMMS at %d,%d at round:%d", islandLocation.x,
-                                islandLocation.y, rc.readSharedArray(0)));
+            // if (islandLocation != null)
+            // System.out.println(String.format("FREE ISLAND FOUND USING COMMS at %d,%d at
+            // round:%d", islandLocation.x,islandLocation.y, rc.readSharedArray(0)));
 
             if (islandLocation == null) {
                 int[] islands = rc.senseNearbyIslands();
@@ -161,7 +160,7 @@ public class Carrier {
         MapLocation targetLocation = Communication.getClosestWell(rc);
         // We have a target location! Let's move towards it.
         if (targetLocation != null) {
-            rc.setIndicatorString(String.format("target loc: (%d,%d)", targetLocation.x, targetLocation.y));
+            rc.setIndicatorString(String.format("target well Loc: (%d,%d)", targetLocation.x, targetLocation.y));
             Pathing.walkTowards(rc, targetLocation);
         }
 
