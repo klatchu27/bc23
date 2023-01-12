@@ -71,11 +71,7 @@ public strictfp class RobotPlayer {
         // You can also use indicators to save debug notes in replays.
         rc.setIndicatorString("Hello world!");
 
-        // report our HQ location once as it cant be destroyed or moved
-        if (rc.getType() == RobotType.HEADQUARTERS) {
-            MapLocation HQLoc = rc.getLocation();
-            // Communication.reportOwnHQ(rc, HQLoc, 1);
-        }
+        Communication.initialiseComms(rc);
 
         while (true) {
             // This code runs during the entire lifespan of the robot, which is why it is in
@@ -87,43 +83,22 @@ public strictfp class RobotPlayer {
             turnCount += 1; // We have now been alive for one more turn!
             Boolean canWrite = (Boolean) (rc.canWriteSharedArray(0, 0));
             rc.setIndicatorString(canWrite.toString());
-            if (canWrite) {
 
-                // System.out.println(String.format("b4 reportAlive: bc left:%d round%d",
-                // Clock.getBytecodesLeft(),
-                // rc.getRoundNum()));
+            if (canWrite) {
                 Communication.reportAlive(rc); // report that we are alive!
 
                 if (rc.getRoundNum() % 2 == 0) {
-                    // System.out.println(String.format("b4 clearObsoleteEnemy: bc left:%d round%d",
-                    // Clock.getBytecodesLeft(),
-                    // rc.getRoundNum()));
-                    // reporting enemies
-                    Communication.clearObsoleteEnemies(rc); // remove outdated enemy locations
-
-                    // System.out.println(String.format("b4 reportEnemy: bc left:%d round%d",
-                    // Clock.getBytecodesLeft(),
-                    // rc.getRoundNum()));
-                    RobotInfo[] nearbyEnemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-                    for (RobotInfo r : nearbyEnemies) {
-                        Communication.reportEnemy(rc, r.getLocation());
-                    }
-
-                    // System.out.println(
-                    // String.format("b4 reportWell: bc left:%d round%d", Clock.getBytecodesLeft(),
-                    // rc.getRoundNum()));
-                    // reporting wells
                     WellInfo[] nearbyWells = rc.senseNearbyWells();
-                    for (WellInfo r : nearbyWells) {
+                    for (WellInfo r : nearbyWells)
                         Communication.reportWell(rc, r.getMapLocation());
-                    }
 
-                    // System.out.println(String.format("b4 reportIsland: bc left:%d round%d",
-                    // Clock.getBytecodesLeft(),
-                    // rc.getRoundNum()));
-                    // reporting islandLocs
                     Communication.updateIslandType(rc);
                     Communication.reportIsland(rc);
+                } else {
+                    Communication.clearObsoleteEnemies(rc); // remove outdated enemy locations
+                    RobotInfo[] nearbyEnemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+                    for (RobotInfo r : nearbyEnemies)
+                        Communication.reportEnemy(rc, r.getLocation());
                 }
             }
 

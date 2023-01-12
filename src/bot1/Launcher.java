@@ -50,7 +50,7 @@ public class Launcher {
         }
 
         if (ownIslandLoc != null) {
-            rc.setIndicatorString("target ownIslandLoc:" + ownIslandLoc);
+            rc.setIndicatorString("protect target ownIslandLoc:" + ownIslandLoc);
             Pathing.walkTowards(rc, ownIslandLoc);
             if (rc.getLocation().distanceSquaredTo(ownIslandLoc) < 5)
                 ownIslandLoc = null;
@@ -59,7 +59,10 @@ public class Launcher {
 
         MapLocation targetLocation = Communication.getClosestEnemy(rc);
         if (targetLocation != null) {
-            rc.setIndicatorString(String.format("target loc: (%d,%d)", targetLocation.x, targetLocation.y));
+            // System.out.println(String.format("Got CLOSEST ENEMY from comms @ " +
+            // targetLocation));
+            rc.setIndicatorString(
+                    String.format("closest enemy comms loc: (%d,%d)", targetLocation.x, targetLocation.y));
             Pathing.walkTowards(rc, targetLocation);
         }
 

@@ -6,20 +6,34 @@ import java.util.Arrays;
 
 public strictfp class Communication {
     private static final int NUM_TYPES = 6;
-    private static final int MIN_ENEMY_IDX = 49;
+    private static final int MIN_ENEMY_IDX = 64 + 45;
+    private static final int MAX_ENEMY_IDX = 64 + 64;
     private static final int MIN_WELL_IDX = 37;
     private static final int MAX_WELL_IDX = 49;
     private static final int MIN_HQ_IDX = 13;
     private static final int MAX_HQ_IDX = 17;
-    public static final int MIN_ISLAND_IDX = 19;
-    public static final int MAX_ISLAND_IDX = 33;
-    public static final int MIN_EXPLORE_IDX = 33;
-    public static final int MAX_EXPLORE_IDX = 37;
+    public static final int MIN_ISLAND_IDX = 17;
+    public static final int MAX_ISLAND_IDX = 35;
+    public static final int MIN_EXPLORE_IDX = 35;
+    public static final int MAX_EXPLORE_IDX = 39;
 
     public static int thisRound = 0;
     public static int[][] sharedArrayCopy = new int[2][GameConstants.SHARED_ARRAY_LENGTH];
-    // public static int[] writeSharedArray1 = new int[64];
-    // public static int[] writeSharedArray2 = new int[64];
+
+    // variables for appprox location for island
+    public static int scale = 2, scaledWidth = 0, scaledHeight = 0;
+    public static int width = 0, height = 0;
+
+    static void initialiseComms(RobotController rc) {
+        width = rc.getMapWidth();
+        height = rc.getMapHeight();
+        scale = 2;
+        if (width > 30 || height > 30)// change later to more accurate
+            scale = 4;
+        scaledWidth = (width + scale - 1) / scale;
+        scaledHeight = (height + scale - 1) / scale;
+        return;
+    }
 
     static void copySharedArray(RobotController rc) throws GameActionException {
         // if (rc.getType() == RobotType.HEADQUARTERS)
@@ -348,11 +362,17 @@ public strictfp class Communication {
                     } catch (GameActionException e) {
                         continue;
                     }
-                    final MapLocation m = intToLocation(rc, value / 4);
+                    final MapLocation m = approxIntToApproxLocation(rc, value / 256);
+                    int oldIslandIdx = 0;
+                    value /= 4;
+                    for (int j = 0; ++j < 6;) {
+                        oldIslandIdx += (1 << j) * (value % 2);
+                        value /= 2;
+                    }
                     if (m == null && slot == -1) {
                         slot = i;
-                    } else if (m != null && islandLoc.distanceSquaredTo(m) <= 16) {
-                        // another island loc is with 4**2 units , then skip this location
+                    } else if (m != null && oldIslandIdx == islandIdx) {
+                        // this island id already exist !!
                         slot = -1;
                         break;
                     }
@@ -363,7 +383,8 @@ public strictfp class Communication {
                         System.out.println(
                                 String.format("Writing island:%d at %d,%d at index:%d",
                                         islandIdx, islandLoc.x, islandLoc.y, slot));
-                        writeSharedArray(rc, slot, locationToInt(rc, islandLoc) * 4 + islandType);
+                        writeSharedArray(rc, slot,
+                                locationToApproxInt(rc, islandLoc) * 256 + islandIdx * 4 + islandType);
                         break;// write one location for one island only
                     } catch (GameActionException e) {
                         e.printStackTrace();
@@ -393,7 +414,7 @@ public strictfp class Communication {
             } catch (GameActionException e) {
                 continue;
             }
-            final MapLocation m = intToLocation(rc, value / 4);
+            final MapLocation m = approxIntToApproxLocation(rc, value / 256);
             int type = (value % 2) + 2 * ((value / 2) % 2);
             if (m != null && (type == reqType)
                     && (answer == null || curLoc.distanceSquaredTo(m) < curLoc.distanceSquaredTo(answer))) {
@@ -413,7 +434,7 @@ public strictfp class Communication {
             } catch (GameActionException e) {
                 continue;
             }
-            final MapLocation m = intToLocation(rc, value / 4);
+            final MapLocation m = approxIntToApproxLocation(rc, value / 256);
             int type = (value % 2) + 2 * ((value / 2) % 2);
             if (m != null && (type == reqType)) {
                 answer.add(m);
@@ -424,13 +445,13 @@ public strictfp class Communication {
 
     static void updateIslandType(RobotController rc) {
         for (int i = MIN_ISLAND_IDX; i < MAX_ISLAND_IDX; i++) {
-            final int value;
+            int value;
             try {
                 value = readSharedArray(rc, i);
             } catch (GameActionException e) {
                 continue;
             }
-            final MapLocation m = intToLocation(rc, value / 4);
+            final MapLocation m = approxIntToApproxLocation(rc, value / 4);
             int oldType = (value % 2) + 2 * ((value / 2) % 2);
             if (m == null || !rc.canSenseLocation(m)) { // We might want a stronger check than this
                 continue;
@@ -466,7 +487,7 @@ public strictfp class Communication {
             return;
 
         int slot = -1;
-        for (int i = MIN_ENEMY_IDX; i < GameConstants.SHARED_ARRAY_LENGTH; i++) {
+        for (int i = MIN_ENEMY_IDX; i < MAX_ENEMY_IDX; i++) {
             final int value;
             try {
                 value = readSharedArray(rc, i);
@@ -482,6 +503,7 @@ public strictfp class Communication {
         }
         if (slot != -1) {
             try {
+                System.out.println(String.format("reporting ENEMY at %d,%d at index:%d", enemy.x, enemy.y, slot));
                 writeSharedArray(rc, slot, locationToInt(rc, enemy));
             } catch (GameActionException e) {
                 e.printStackTrace();
@@ -491,7 +513,7 @@ public strictfp class Communication {
 
     static MapLocation getClosestEnemy(RobotController rc) {
         MapLocation answer = null;
-        for (int i = MIN_ENEMY_IDX; i < GameConstants.SHARED_ARRAY_LENGTH; i++) {
+        for (int i = MIN_ENEMY_IDX; i < MAX_ENEMY_IDX; i++) {
             final int value;
             try {
                 value = readSharedArray(rc, i);
@@ -508,7 +530,7 @@ public strictfp class Communication {
     }
 
     static void clearObsoleteEnemies(RobotController rc) {
-        for (int i = MIN_ENEMY_IDX; i < GameConstants.SHARED_ARRAY_LENGTH; i++) {
+        for (int i = MIN_ENEMY_IDX; i < MAX_ENEMY_IDX; i++) {
             final int value;
             try {
                 value = readSharedArray(rc, i);
@@ -522,7 +544,8 @@ public strictfp class Communication {
             try {
                 final RobotInfo r = rc.senseRobotAtLocation(m);
                 if (r == null || r.team == rc.getTeam()) {
-                    writeSharedArray(rc, i, locationToInt(rc, null));
+                    System.out.println(String.format("Clearing obs ENEMY at %d,%d at index:%d", m.x, m.y, i));
+                    writeSharedArray(rc, i, 0);
                 }
             } catch (GameActionException e) {
                 e.printStackTrace();
@@ -566,13 +589,32 @@ public strictfp class Communication {
         int r = index % GameConstants.SHARED_ARRAY_LENGTH;
         int turn = (rc.getRoundNum()) % 2;
         if (r < 13 || q == turn)
-            rc.writeSharedArray(index, value);
+            rc.writeSharedArray(r, value);
+    }
+
+    public static int locationToApproxInt(RobotController rc, MapLocation m) {
+        if (m == null)
+            return 0;
+        return 1 + (m.x / scale) + (m.y / scale) * scaledWidth;
+    }
+
+    public static MapLocation approxIntToApproxLocation(RobotController rc, int m) {
+        if (m == 0) {
+            return null;
+        }
+        m--;
+        int x = (m % scaledWidth) * scale;
+        int y = (m / scaledWidth) * scale;
+        if (x + 1 < width)
+            x++;
+        if (y + 1 < height)
+            y++;
+        return new MapLocation(x, y);
     }
 
     private static int locationToInt(RobotController rc, MapLocation m) {
-        if (m == null) {
+        if (m == null)
             return 0;
-        }
         return 1 + m.x + m.y * rc.getMapWidth();
     }
 
