@@ -1,6 +1,7 @@
 package bot1;
 
 import battlecode.common.*;
+import java.util.ArrayList;
 
 public strictfp class Communication {
     private static final int NUM_TYPES = 6;
@@ -321,7 +322,8 @@ public strictfp class Communication {
                     try {
                         rc.setIndicatorDot(islandLoc, 200, 0, 0);
                         System.out.println(
-                                String.format("Writing island at %d,%d at index:%d", islandLoc.x, islandLoc.y, slot));
+                                String.format("Writing island:%d at %d,%d at index:%d",
+                                        islandIdx, islandLoc.x, islandLoc.y, slot));
                         rc.writeSharedArray(slot, locationToInt(rc, islandLoc) * 4 + islandType);
                         break;// write one location for one island only
                     } catch (GameActionException e) {
@@ -362,6 +364,24 @@ public strictfp class Communication {
             }
         }
 
+        return answer;
+    }
+
+    static ArrayList<MapLocation> getIslandLocs(RobotController rc, int reqType) {
+        ArrayList<MapLocation> answer = new ArrayList<MapLocation>(0);
+        for (int i = MIN_ISLAND_IDX; i < MAX_ISLAND_IDX; i++) {
+            int value = 0;
+            try {
+                value = rc.readSharedArray(i);
+            } catch (GameActionException e) {
+                continue;
+            }
+            final MapLocation m = intToLocation(rc, value / 4);
+            int type = (value % 2) + 2 * ((value / 2) % 2);
+            if (m != null && (type == reqType)) {
+                answer.add(m);
+            }
+        }
         return answer;
     }
 

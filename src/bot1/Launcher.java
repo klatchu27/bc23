@@ -3,6 +3,7 @@ package bot1;
 import battlecode.common.*;
 
 import java.util.Random;
+import java.util.ArrayList;
 
 public class Launcher {
 
@@ -18,12 +19,15 @@ public class Launcher {
             Direction.NORTHWEST,
     };
 
+    static MapLocation ownIslandLoc = null, enemyIslandLoc = null;
+
     /**
      * Run a single turn for a Launcher.
      * This code is wrapped inside the infinite loop in run(), so it is called once
      * per turn.
      */
     static void runLauncher(RobotController rc) throws GameActionException {
+
         // Try to attack someone
         int radius = rc.getType().actionRadiusSquared;
         Team opponent = rc.getTeam().opponent();
@@ -36,13 +40,27 @@ public class Launcher {
                 rc.setIndicatorString("Attacking");
                 rc.attack(toAttack);
             }
-        } else {
-            MapLocation targetLocation = Communication.getClosestEnemy(rc);
-            if (targetLocation != null) {
-                rc.setIndicatorString(String.format("target loc: (%d,%d)", targetLocation.x, targetLocation.y));
-                Pathing.walkTowards(rc, targetLocation);
-            }
+        }
 
+        // go toward owned islands
+        if (ownIslandLoc == null) {
+            ArrayList<MapLocation> ownIslandLocs = Communication.getIslandLocs(rc, 1);
+            if (ownIslandLocs.size() > 0)
+                ownIslandLoc = ownIslandLocs.get(rng.nextInt(ownIslandLocs.size()));
+        }
+
+        if (ownIslandLoc != null) {
+            rc.setIndicatorString("target ownIslandLoc:" + ownIslandLoc);
+            Pathing.walkTowards(rc, ownIslandLoc);
+            if (rc.getLocation().distanceSquaredTo(ownIslandLoc) < 5)
+                ownIslandLoc = null;
+            return;
+        }
+
+        MapLocation targetLocation = Communication.getClosestEnemy(rc);
+        if (targetLocation != null) {
+            rc.setIndicatorString(String.format("target loc: (%d,%d)", targetLocation.x, targetLocation.y));
+            Pathing.walkTowards(rc, targetLocation);
         }
 
         // Also try to move randomly.

@@ -20,7 +20,7 @@ public strictfp class Amplifier {
     static MapLocation exploreLoc = null, randomExploreLoc = null;
 
     static void runAmplifier(RobotController rc) throws GameActionException {
-        int exploreRadiusSquare = 9;
+        int exploreRadiusSquare = 8;
         Communication.clearExploreLoc(rc, exploreRadiusSquare);
 
         if (exploreLoc == null)
@@ -28,7 +28,7 @@ public strictfp class Amplifier {
         if (exploreLoc != null) {
             rc.setIndicatorString(String.format("comms expLoc: %d,%d", exploreLoc.x, exploreLoc.y));
             Pathing.walkTowards(rc, exploreLoc);
-            if (rc.getLocation().distanceSquaredTo(exploreLoc) < exploreRadiusSquare)
+            if (rc.getLocation().distanceSquaredTo(exploreLoc) <= exploreRadiusSquare)
                 exploreLoc = null;
             return;
         }
@@ -38,7 +38,7 @@ public strictfp class Amplifier {
             randomExploreLoc = new MapLocation(rng.nextInt(rc.getMapWidth()), rng.nextInt(rc.getMapHeight()));
         rc.setIndicatorString(String.format("rand expLoc: %d,%d", randomExploreLoc.x, randomExploreLoc.y));
         Pathing.walkTowards(rc, randomExploreLoc);
-        if (rc.getLocation().distanceSquaredTo(randomExploreLoc) < exploreRadiusSquare)
+        if (rc.getLocation().distanceSquaredTo(randomExploreLoc) <= exploreRadiusSquare)
             randomExploreLoc = null;
     }
 

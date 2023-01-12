@@ -75,12 +75,6 @@ public strictfp class RobotPlayer {
         if (rc.getType() == RobotType.HEADQUARTERS) {
             MapLocation HQLoc = rc.getLocation();
             Communication.reportOwnHQ(rc, HQLoc, 1);
-            // assume enemies at reflection locations
-            // final int x = HQLoc.x, y = HQLoc.y;
-            // Communication.reportEnemy(rc, new MapLocation(x, rc.getMapHeight() - y - 1));
-            // Communication.reportEnemy(rc, new MapLocation(rc.getMapWidth() - x - 1, y));
-            // Communication.reportEnemy(rc, new MapLocation(rc.getMapWidth() - x - 1,
-            // rc.getMapHeight() - y - 1));
         }
 
         while (true) {
@@ -90,7 +84,6 @@ public strictfp class RobotPlayer {
             // the end of the
             // loop, we call Clock.yield(), signifying that we've done everything we want to
             // do.
-            rc.setIndicatorDot(new MapLocation(5, 5), 200, 0, 0);
             turnCount += 1; // We have now been alive for one more turn!
 
             if (rc.canWriteSharedArray(0, 0)) {
