@@ -3,6 +3,7 @@ package bot1;
 import battlecode.common.*;
 
 import java.util.Random;
+import java.util.Arrays;
 
 public strictfp class HeadQuarters {
 
@@ -65,7 +66,8 @@ public strictfp class HeadQuarters {
      */
     static void runHeadquarters(RobotController rc) throws GameActionException {
 
-        addExplorationLoc(rc);
+        if (rc.getRoundNum() % 2 == 0)
+            addExplorationLoc(rc);
 
         MapLocation curLoc = rc.getLocation();
         adamantium = rc.getResourceAmount(ResourceType.ADAMANTIUM);
@@ -80,13 +82,15 @@ public strictfp class HeadQuarters {
         if (standardAnchors > 0)
             resourceTypeRequired |= 4;
         rc.setIndicatorString(String.format("resourceTypeReq: %d", resourceTypeRequired));
-        Communication.reportOwnHQ(rc, curLoc, resourceTypeRequired);
+
+        if (rc.getRoundNum() % 2 == 0)
+            Communication.reportOwnHQ(rc, curLoc, resourceTypeRequired);
 
         // get count of troops alive of each type from last round
-        for (int i = NUM_TYPES - 1; --i >= 0;) {
+        for (int i = NUM_TYPES - 1; --i >= 0;)
             troopsAlive[i] = Communication.getAlive(rc, troopTypes[i]);
-        }
 
+        // System.out.println(Arrays.toString(troopsAlive));
         double thresholdIndex = totalResources / 200.0;
         for (int i = indexOfTroopsBuildOrder.length; --i > 0;)
             if (troopsAlive[indexOfTroopsBuildOrder[i]] < Math.max(1,

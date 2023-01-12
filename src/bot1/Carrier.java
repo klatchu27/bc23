@@ -65,8 +65,8 @@ public strictfp class Carrier {
             }
 
             // if (islandLocation != null)
-            // System.out.println(String.format("FREE ISLAND FOUND USING COMMS at %d,%d at
-            // round:%d", islandLocation.x,islandLocation.y, rc.readSharedArray(0)));
+            // System.out.println(String.format("FREE ISLAND FROM COMMS:%d,%d",
+            // islandLocation.x, islandLocation.y));
 
             if (islandLocation == null) {
                 int[] islands = rc.senseNearbyIslands();
@@ -93,7 +93,8 @@ public strictfp class Carrier {
             if (rc.canPlaceAnchor()) {
                 rc.setIndicatorString("Huzzah, placed anchor!");
                 rc.placeAnchor();
-                Communication.updateIslandType(rc);
+                if (rc.getRoundNum() % 2 == 0)
+                    Communication.updateIslandType(rc);
                 islandId = -1;
                 islandLocation = null;
             } else {
@@ -168,5 +169,6 @@ public strictfp class Carrier {
         Direction dir = directions[rng.nextInt(directions.length)];
         if (rc.canMove(dir))
             rc.move(dir);
+
     }
 }

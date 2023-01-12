@@ -74,7 +74,7 @@ public strictfp class RobotPlayer {
         // report our HQ location once as it cant be destroyed or moved
         if (rc.getType() == RobotType.HEADQUARTERS) {
             MapLocation HQLoc = rc.getLocation();
-            Communication.reportOwnHQ(rc, HQLoc, 1);
+            // Communication.reportOwnHQ(rc, HQLoc, 1);
         }
 
         while (true) {
@@ -85,26 +85,48 @@ public strictfp class RobotPlayer {
             // loop, we call Clock.yield(), signifying that we've done everything we want to
             // do.
             turnCount += 1; // We have now been alive for one more turn!
+            Boolean canWrite = (Boolean) (rc.canWriteSharedArray(0, 0));
+            rc.setIndicatorString(canWrite.toString());
+            if (canWrite) {
 
-            if (rc.canWriteSharedArray(0, 0)) {
+                // System.out.println(String.format("b4 reportAlive: bc left:%d round%d",
+                // Clock.getBytecodesLeft(),
+                // rc.getRoundNum()));
                 Communication.reportAlive(rc); // report that we are alive!
 
-                // reporting enemies
-                Communication.clearObsoleteEnemies(rc); // remove outdated enemy locations
-                RobotInfo[] nearbyEnemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-                for (RobotInfo r : nearbyEnemies) {
-                    Communication.reportEnemy(rc, r.getLocation());
-                }
+                if (rc.getRoundNum() % 2 == 0) {
+                    // System.out.println(String.format("b4 clearObsoleteEnemy: bc left:%d round%d",
+                    // Clock.getBytecodesLeft(),
+                    // rc.getRoundNum()));
+                    // reporting enemies
+                    Communication.clearObsoleteEnemies(rc); // remove outdated enemy locations
 
-                // reporting wells
-                WellInfo[] nearbyWells = rc.senseNearbyWells();
-                for (WellInfo r : nearbyWells) {
-                    Communication.reportWell(rc, r.getMapLocation());
-                }
+                    // System.out.println(String.format("b4 reportEnemy: bc left:%d round%d",
+                    // Clock.getBytecodesLeft(),
+                    // rc.getRoundNum()));
+                    RobotInfo[] nearbyEnemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+                    for (RobotInfo r : nearbyEnemies) {
+                        Communication.reportEnemy(rc, r.getLocation());
+                    }
 
-                // reporting islandLocs
-                Communication.updateIslandType(rc);
-                Communication.reportIsland(rc);
+                    // System.out.println(
+                    // String.format("b4 reportWell: bc left:%d round%d", Clock.getBytecodesLeft(),
+                    // rc.getRoundNum()));
+                    // reporting wells
+                    WellInfo[] nearbyWells = rc.senseNearbyWells();
+                    for (WellInfo r : nearbyWells) {
+                        Communication.reportWell(rc, r.getMapLocation());
+                    }
+
+                    // System.out.println(String.format("b4 reportIsland: bc left:%d round%d",
+                    // Clock.getBytecodesLeft(),
+                    // rc.getRoundNum()));
+                    // reporting islandLocs
+                    if (rc.getRoundNum() % 2 == 0)
+                        Communication.updateIslandType(rc);
+                    if (rc.getRoundNum() % 2 == 0)
+                        Communication.reportIsland(rc);
+                }
             }
 
             // Try/catch blocks stop unhandled exceptions, which cause your robot to
@@ -155,6 +177,12 @@ public strictfp class RobotPlayer {
                 // Signify we've done everything we want to do, thereby ending our turn.
                 // This will make our code wait until the next turn, and then perform this loop
                 // again.
+                try {
+                    Communication.copySharedArray(rc);
+                } catch (GameActionException e) {
+                    System.out.println(rc.getType() + " Exception");
+                    e.printStackTrace();
+                }
                 Clock.yield();
             }
             // End of loop: go back to the top. Clock.yield() has ended, so it's time for
