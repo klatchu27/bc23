@@ -2,6 +2,7 @@ package bot1;
 
 import battlecode.common.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 public strictfp class Communication {
     private static final int NUM_TYPES = 6;
@@ -15,6 +16,21 @@ public strictfp class Communication {
     public static final int MIN_EXPLORE_IDX = 33;
     public static final int MAX_EXPLORE_IDX = 37;
 
+    public static int thisRound = 0;
+    public static int[][] sharedArrayCopy = new int[2][GameConstants.SHARED_ARRAY_LENGTH];
+    // public static int[] writeSharedArray1 = new int[64];
+    // public static int[] writeSharedArray2 = new int[64];
+
+    static void copySharedArray(RobotController rc) throws GameActionException {
+        // if (rc.getType() == RobotType.HEADQUARTERS)
+        // return;
+        thisRound = rc.getRoundNum() % 2;
+        for (int i = 13; ++i < GameConstants.SHARED_ARRAY_LENGTH;)
+            sharedArrayCopy[thisRound][i] = rc.readSharedArray(i);
+        // System.out.println("after copyShared" + Arrays.toString(sharedArrayCopy[0]));
+        // System.out.println("after copyShared" + Arrays.toString(sharedArrayCopy[1]));
+    }
+
     static void reportAlive(RobotController rc) {
         // check if we can write to the shared array b4 reporting
         if (!rc.canWriteSharedArray(0, 0))
@@ -24,19 +40,29 @@ public strictfp class Communication {
 
         try {
             // Zero out in-progress counts if necessary
-            if (rc.readSharedArray(0) != rc.getRoundNum()) {
-                final int thisRound = rc.getRoundNum() % 2;
-                for (int i = 0; i < NUM_TYPES; i++) {
-                    if (rc.readSharedArray(thisRound * NUM_TYPES + i + 1) != 0) {
-                        rc.writeSharedArray(thisRound * NUM_TYPES + i + 1, 0);
+            thisRound = rc.getRoundNum() % 2;
+            if (readSharedArray(rc, 0) != thisRound) {
+
+                for (int i = 13; ++i < GameConstants.SHARED_ARRAY_LENGTH;) {
+                    int val = rc.readSharedArray(i);
+                    sharedArrayCopy[1 - thisRound][i] = val;
+                    if (sharedArrayCopy[thisRound][i] != val)
+                        rc.writeSharedArray(i, sharedArrayCopy[thisRound][i]);
+                }
+                writeSharedArray(rc, 0, rc.getRoundNum() % 2);
+
+                for (int i = 0; ++i < NUM_TYPES;) {
+                    if (readSharedArray(rc, thisRound * NUM_TYPES + i + 1) != 0) {
+                        writeSharedArray(rc, thisRound * NUM_TYPES + i + 1, 0);
                     }
                 }
-                rc.writeSharedArray(0, rc.getRoundNum());
+
             }
 
             // Increment alive counter
             final int arrayIdx = (rc.getRoundNum() % 2) * NUM_TYPES + typeIdx + 1;
-            rc.writeSharedArray(arrayIdx, rc.readSharedArray(arrayIdx) + 1);
+            writeSharedArray(rc, arrayIdx, readSharedArray(rc, arrayIdx) + 1);
+
         } catch (GameActionException e) {
             e.printStackTrace();
         }
@@ -48,7 +74,7 @@ public strictfp class Communication {
         // Read from previous write cycle
         final int arrayIdx = ((rc.getRoundNum() + 1) % 2) * NUM_TYPES + typeIdx + 1;
         try {
-            return rc.readSharedArray(arrayIdx);
+            return readSharedArray(rc, arrayIdx);
         } catch (GameActionException e) {
             e.printStackTrace();
             return 0;
@@ -64,7 +90,7 @@ public strictfp class Communication {
         for (int i = MIN_EXPLORE_IDX; i < MAX_EXPLORE_IDX; i++) {
             int value;
             try {
-                value = rc.readSharedArray(i);
+                value = readSharedArray(rc, i);
             } catch (GameActionException e) {
                 continue;
             }
@@ -77,7 +103,7 @@ public strictfp class Communication {
         }
         if (slot != -1) {
             try {
-                rc.writeSharedArray(slot, locationToInt(rc, loc));
+                writeSharedArray(rc, slot, locationToInt(rc, loc));
                 return slot;
             } catch (GameActionException e) {
                 e.printStackTrace();
@@ -91,7 +117,7 @@ public strictfp class Communication {
         for (int i = MIN_EXPLORE_IDX; i < MAX_EXPLORE_IDX; i++) {
             final int value;
             try {
-                value = rc.readSharedArray(i);
+                value = readSharedArray(rc, i);
             } catch (GameActionException e) {
                 continue;
             }
@@ -119,7 +145,7 @@ public strictfp class Communication {
         for (int i = MIN_EXPLORE_IDX; i < MAX_EXPLORE_IDX; i++) {
             int value;
             try {
-                value = rc.readSharedArray(i);
+                value = readSharedArray(rc, i);
             } catch (GameActionException e) {
                 continue;
             }
@@ -128,7 +154,7 @@ public strictfp class Communication {
                 continue;
             }
             try {
-                rc.writeSharedArray(i, 0);
+                writeSharedArray(rc, i, 0);
             } catch (GameActionException e) {
                 e.printStackTrace();
             }
@@ -154,7 +180,7 @@ public strictfp class Communication {
         for (int i = MIN_HQ_IDX; i < MAX_HQ_IDX; i++) {
             int value;
             try {
-                value = rc.readSharedArray(i) / 8;
+                value = readSharedArray(rc, i) / 8;
             } catch (GameActionException e) {
                 continue;
             }
@@ -175,7 +201,7 @@ public strictfp class Communication {
                 int value = locationToInt(rc, HQLoc);
                 value = value * 8;
                 value |= resourceTypeRequired;
-                rc.writeSharedArray(slot, value);
+                writeSharedArray(rc, slot, value);
             } catch (GameActionException e) {
                 e.printStackTrace();
             }
@@ -200,13 +226,19 @@ public strictfp class Communication {
         for (int i = MIN_HQ_IDX; i < MAX_HQ_IDX; i++) {
             int value;
             try {
-                value = rc.readSharedArray(i);
+                value = readSharedArray(rc, i);
             } catch (GameActionException e) {
                 continue;
             }
             requirement = (value % 2) + 2 * ((value / 2) % 2);
             int anchorAvailable = (value / 4) % 2;
             final MapLocation m = intToLocation(rc, value / 8);
+
+            // if (m != null)
+            // System.out.println(
+            // String.format("loc: %d,%d, req:%d ,anchor:%d", m.x, m.y, requirement,
+            // anchorAvailable));
+
             if (m != null
                     && (requirement == resourceAvailable
                             || (resourceAvailable == -1 && anchorAvailable >= anchorRequirement))
@@ -222,15 +254,20 @@ public strictfp class Communication {
         if (!rc.canWriteSharedArray(0, 0))
             return;
 
+        // System.out.println(rc.getRoundNum());
+        // System.out.println(Arrays.toString(sharedArrayCopy[0]));
+        // System.out.println(Arrays.toString(sharedArrayCopy[1]));
+
         int slot = -1;
         for (int i = MIN_WELL_IDX; i < MAX_WELL_IDX; i++) {
             final int value;
             try {
-                value = rc.readSharedArray(i);
+                value = readSharedArray(rc, i);
             } catch (GameActionException e) {
                 continue;
             }
             final MapLocation m = intToLocation(rc, value);
+
             if (m == null && slot == -1) {
                 slot = i;
             } else if (m != null && wellLoc.distanceSquaredTo(m) <= 1) {
@@ -241,12 +278,14 @@ public strictfp class Communication {
         }
         if (slot != -1) {
             try {
-                System.out.println(String.format("reporting well location at (%d,%d)", wellLoc.x, wellLoc.y));
-                rc.writeSharedArray(slot, locationToInt(rc, wellLoc));
+                System.out.println(String.format("reporting well location at (%d,%d)=%d", wellLoc.x, wellLoc.y,
+                        locationToInt(rc, wellLoc)));
+                writeSharedArray(rc, slot, locationToInt(rc, wellLoc));
             } catch (GameActionException e) {
                 e.printStackTrace();
             }
         }
+
     }
 
     static MapLocation getClosestWell(RobotController rc) {
@@ -255,7 +294,7 @@ public strictfp class Communication {
         for (int i = MIN_WELL_IDX; i < MAX_WELL_IDX; i++) {
             final int value;
             try {
-                value = rc.readSharedArray(i);
+                value = readSharedArray(rc, i);
             } catch (GameActionException e) {
                 continue;
             }
@@ -305,7 +344,7 @@ public strictfp class Communication {
                 for (int i = MIN_ISLAND_IDX; i < MAX_ISLAND_IDX; i++) {
                     int value;
                     try {
-                        value = rc.readSharedArray(i);
+                        value = readSharedArray(rc, i);
                     } catch (GameActionException e) {
                         continue;
                     }
@@ -324,7 +363,7 @@ public strictfp class Communication {
                         System.out.println(
                                 String.format("Writing island:%d at %d,%d at index:%d",
                                         islandIdx, islandLoc.x, islandLoc.y, slot));
-                        rc.writeSharedArray(slot, locationToInt(rc, islandLoc) * 4 + islandType);
+                        writeSharedArray(rc, slot, locationToInt(rc, islandLoc) * 4 + islandType);
                         break;// write one location for one island only
                     } catch (GameActionException e) {
                         e.printStackTrace();
@@ -350,7 +389,7 @@ public strictfp class Communication {
         for (int i = MIN_ISLAND_IDX; i < MAX_ISLAND_IDX; i++) {
             int value = 0;
             try {
-                value = rc.readSharedArray(i);
+                value = readSharedArray(rc, i);
             } catch (GameActionException e) {
                 continue;
             }
@@ -359,8 +398,6 @@ public strictfp class Communication {
             if (m != null && (type == reqType)
                     && (answer == null || curLoc.distanceSquaredTo(m) < curLoc.distanceSquaredTo(answer))) {
                 answer = m;
-                if (answer.x == 2 && answer.y == 6)
-                    System.out.println(String.format("index of 2,6 is %d type:%d", i, type));
             }
         }
 
@@ -372,7 +409,7 @@ public strictfp class Communication {
         for (int i = MIN_ISLAND_IDX; i < MAX_ISLAND_IDX; i++) {
             int value = 0;
             try {
-                value = rc.readSharedArray(i);
+                value = readSharedArray(rc, i);
             } catch (GameActionException e) {
                 continue;
             }
@@ -389,7 +426,7 @@ public strictfp class Communication {
         for (int i = MIN_ISLAND_IDX; i < MAX_ISLAND_IDX; i++) {
             final int value;
             try {
-                value = rc.readSharedArray(i);
+                value = readSharedArray(rc, i);
             } catch (GameActionException e) {
                 continue;
             }
@@ -401,7 +438,7 @@ public strictfp class Communication {
             try {
                 int islandIdx = rc.senseIsland(m);
                 if (islandIdx == -1)
-                    rc.writeSharedArray(i, 0);
+                    writeSharedArray(rc, i, 0);
                 else {
 
                     int newType = 0;
@@ -413,7 +450,7 @@ public strictfp class Communication {
 
                     if (oldType != newType) {
                         System.out.println(String.format("UPDATING ISLAND TYPE at %d,%d at index:%d", m.x, m.y, i));
-                        rc.writeSharedArray(i, ((value / 4) * 4) + newType);
+                        writeSharedArray(rc, i, ((value / 4) * 4) + newType);
                     }
 
                 }
@@ -432,7 +469,7 @@ public strictfp class Communication {
         for (int i = MIN_ENEMY_IDX; i < GameConstants.SHARED_ARRAY_LENGTH; i++) {
             final int value;
             try {
-                value = rc.readSharedArray(i);
+                value = readSharedArray(rc, i);
             } catch (GameActionException e) {
                 continue;
             }
@@ -445,7 +482,7 @@ public strictfp class Communication {
         }
         if (slot != -1) {
             try {
-                rc.writeSharedArray(slot, locationToInt(rc, enemy));
+                writeSharedArray(rc, slot, locationToInt(rc, enemy));
             } catch (GameActionException e) {
                 e.printStackTrace();
             }
@@ -457,7 +494,7 @@ public strictfp class Communication {
         for (int i = MIN_ENEMY_IDX; i < GameConstants.SHARED_ARRAY_LENGTH; i++) {
             final int value;
             try {
-                value = rc.readSharedArray(i);
+                value = readSharedArray(rc, i);
             } catch (GameActionException e) {
                 continue;
             }
@@ -474,7 +511,7 @@ public strictfp class Communication {
         for (int i = MIN_ENEMY_IDX; i < GameConstants.SHARED_ARRAY_LENGTH; i++) {
             final int value;
             try {
-                value = rc.readSharedArray(i);
+                value = readSharedArray(rc, i);
             } catch (GameActionException e) {
                 continue;
             }
@@ -485,7 +522,7 @@ public strictfp class Communication {
             try {
                 final RobotInfo r = rc.senseRobotAtLocation(m);
                 if (r == null || r.team == rc.getTeam()) {
-                    rc.writeSharedArray(i, locationToInt(rc, null));
+                    writeSharedArray(rc, i, locationToInt(rc, null));
                 }
             } catch (GameActionException e) {
                 e.printStackTrace();
@@ -510,6 +547,26 @@ public strictfp class Communication {
             default:
                 throw new RuntimeException("Unknown type: " + type);
         }
+    }
+
+    /**
+     * reads from rc.readSharedArray(index%64) if index==0 or roundNum%2 == index/64
+     * else reads from sharedArrayCopy[index/64][index%64]
+     */
+    public static int readSharedArray(RobotController rc, int index) throws GameActionException {
+        int q = index / GameConstants.SHARED_ARRAY_LENGTH;
+        int r = index % GameConstants.SHARED_ARRAY_LENGTH;
+        if (r < 13 || q == rc.getRoundNum() % 2)
+            return rc.readSharedArray(r);
+        return sharedArrayCopy[q][r];
+    }
+
+    public static void writeSharedArray(RobotController rc, int index, int value) throws GameActionException {
+        int q = index / GameConstants.SHARED_ARRAY_LENGTH;
+        int r = index % GameConstants.SHARED_ARRAY_LENGTH;
+        int turn = (rc.getRoundNum()) % 2;
+        if (r < 13 || q == turn)
+            rc.writeSharedArray(index, value);
     }
 
     private static int locationToInt(RobotController rc, MapLocation m) {
