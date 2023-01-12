@@ -53,7 +53,8 @@ public strictfp class HeadQuarters {
             Index.CARRIER.getIndex(),
     };
     static int[][] ExplorationHeatMap = null;
-    static boolean stillExploring = true;
+    static int exploreX = 0, exploreY = 0, scaleX = 3, scaleY = 3;
+
     static int totalResources = 0, adamantium = 0, mana = 0, resourceTypeRequired = 0;
     static int standardAnchors = 0, MIN_STANDARD_ANCHOR = 1;
 
@@ -128,35 +129,21 @@ public strictfp class HeadQuarters {
 
     static void addExplorationLoc(RobotController rc) {
 
-        int width = rc.getMapWidth(), height = rc.getMapHeight();
-        if (ExplorationHeatMap == null) {
-            System.out.println(String.format("Byte code left b4 = %d", Clock.getBytecodesLeft()));
+        int width = rc.getMapWidth() / scaleX, height = rc.getMapHeight() / scaleY;
+        if (ExplorationHeatMap == null)
             ExplorationHeatMap = new int[width][height];
-            System.out.println(String.format("Byte code left after = %d", Clock.getBytecodesLeft()));
-        }
 
         int slot = -1;
-        outer: while (stillExploring) {
-            for (int x = 0; x < width; x++) {
-                for (int y = 0; y < height; y++) {
-                    if (ExplorationHeatMap[x][y] == 0) {
+        for (; exploreX < width; exploreX++) {
+            for (; exploreY < height; exploreY++) {
+                if (ExplorationHeatMap[exploreX][exploreY] == 0) {
 
-                        slot = Communication.reportExploreLoc(rc, new MapLocation(x, y), true);
-
-                        // updating heat map with 4*4 unit**2(square distance)
-                        if (slot != -1) {
-                            for (int dx = -4; dx <= 4; dx++) {
-                                for (int dy = -4; dy <= 4; dy++) {
-                                    if (x + dx >= 0 && x + dx < width && y + dy >= 0 && y + dy < height)
-                                        ExplorationHeatMap[x + dx][y + dy] = 1;
-                                }
-                            }
-                        } else
-                            break outer;
-                    }
+                    slot = Communication.reportExploreLoc(rc, new MapLocation(3 * exploreX, 3 * exploreY), true);
+                    if (slot != -1)
+                        ExplorationHeatMap[exploreX][exploreY] = 1;
+                    return;
                 }
             }
-            stillExploring = false;
         }
 
     }
