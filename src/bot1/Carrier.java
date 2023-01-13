@@ -117,18 +117,21 @@ public strictfp class Carrier {
             if (targetHQLoc == null)
                 targetHQLoc = Communication.getClosestOwnHQ(rc, -1, 0);
 
-            boolean t_ad = rc.canTransferResource(targetHQLoc, ResourceType.ADAMANTIUM, adamantium),
-                    t_mn = rc.canTransferResource(targetHQLoc, ResourceType.MANA, mana);
-            if (adamantium == 0)
-                t_ad = false;
-            if (mana == 0)
-                t_mn = false;
+            assert (targetHQLoc != null);
+
+            boolean t_ad = false, t_mn = false;
+            if (adamantium != 0)
+                t_ad = rc.canTransferResource(targetHQLoc, ResourceType.ADAMANTIUM, adamantium);
+            if (mana != 0)
+                t_mn = rc.canTransferResource(targetHQLoc, ResourceType.MANA, mana);
 
             if (t_ad || t_mn) {
                 if (t_ad && adamantium > 0)
                     rc.transferResource(targetHQLoc, ResourceType.ADAMANTIUM, adamantium);
-                if (rc.canTransferResource(targetHQLoc, ResourceType.MANA, mana) && mana > 0)
-                    rc.transferResource(targetHQLoc, ResourceType.MANA, mana);
+                if (mana != 0) {
+                    if (rc.canTransferResource(targetHQLoc, ResourceType.MANA, mana))
+                        rc.transferResource(targetHQLoc, ResourceType.MANA, mana);
+                }
             } else {
                 if (targetHQLoc != null) {
                     rc.setIndicatorString(String.format("target HQ loc: (%d,%d)", targetHQLoc.x, targetHQLoc.y));

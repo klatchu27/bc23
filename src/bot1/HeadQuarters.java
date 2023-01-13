@@ -87,7 +87,7 @@ public strictfp class HeadQuarters {
             Communication.reportOwnHQ(rc, curLoc, resourceTypeRequired);
 
         // get count of troops alive of each type from last round
-        for (int i = NUM_TYPES - 1; --i >= 0;)
+        for (int i = NUM_TYPES; --i >= 0;)
             troopsAlive[i] = Communication.getAlive(rc, troopTypes[i]);
 
         // System.out.println(Arrays.toString(troopsAlive));
@@ -103,7 +103,7 @@ public strictfp class HeadQuarters {
                 // If we can build an anchor do it!
                 // System.out.println("SUCCESSFULLY built ANCHOR!!");
                 rc.buildAnchor(Anchor.STANDARD);
-                rc.setIndicatorString("Building anchor! " + rc.getAnchor());
+                rc.setIndicatorString("Building anchor! " + rc.getNumAnchors(Anchor.STANDARD));
             }
     }
 
