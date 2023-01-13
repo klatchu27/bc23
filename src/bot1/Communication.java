@@ -391,7 +391,8 @@ public strictfp class Communication {
             } else if (m != null && oldIslandIdx == islandIdx) {
                 // this island id already exist !!
                 slot = -1;
-                break;
+                // System.out.printf("islnad already exist: %d \n", oldIslandIdx);
+                return false;
             }
         }
         if (slot != -1) {
@@ -419,7 +420,8 @@ public strictfp class Communication {
                 } else {
                     System.out.printf("stashing islandLoc:" + islandLoc
                             + String.format(" val:%d id:%d \n", approxInt, islandIdx));
-                    stashedislandLocs.add(new Integer(approxInt));
+                    if (stashedislandLocs.contains(new Integer(approxInt)) == false)
+                        stashedislandLocs.add(new Integer(approxInt));
                     return false;
                 }
 
@@ -427,6 +429,8 @@ public strictfp class Communication {
                 e.printStackTrace();
                 return false;
             }
+        } else {
+            System.out.printf("no slots available for island \n");
         }
         return false;
     }

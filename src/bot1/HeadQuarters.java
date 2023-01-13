@@ -3,7 +3,7 @@ package bot1;
 import battlecode.common.*;
 
 import java.util.Random;
-import java.util.Arrays;
+// import java.util.Arrays;
 
 public strictfp class HeadQuarters {
 

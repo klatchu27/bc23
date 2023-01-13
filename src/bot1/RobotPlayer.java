@@ -49,6 +49,7 @@ public strictfp class RobotPlayer {
             Direction.WEST,
             Direction.NORTHWEST,
     };
+    static ArrayList<Integer> stashedislandLocs = null;
 
     /**
      * run() is the method that is called when a robot is instantiated in the
@@ -61,7 +62,7 @@ public strictfp class RobotPlayer {
      *           information on its current status. Essentially your portal to
      *           interacting with the world.
      **/
-    @SuppressWarnings("unused")
+    // @SuppressWarnings("unused")
     public static void run(RobotController rc) throws GameActionException {
 
         // Hello world! Standard output is very useful for debugging.
@@ -74,56 +75,39 @@ public strictfp class RobotPlayer {
         Communication.initialiseComms(rc);
 
         while (true) {
-            // This code runs during the entire lifespan of the robot, which is why it is in
-            // an infinite
-            // loop. If we ever leave this loop and return from run(), the robot dies! At
-            // the end of the
-            // loop, we call Clock.yield(), signifying that we've done everything we want to
-            // do.
-            turnCount += 1; // We have now been alive for one more turn!
-            Boolean canWrite = (Boolean) (rc.canWriteSharedArray(0, 0));
-            rc.setIndicatorString(canWrite.toString());
 
-            if (canWrite) {
-                Communication.reportAlive(rc); // report that we are alive!
-
-                if (rc.getRoundNum() % 2 == 0) {
-                    WellInfo[] nearbyWells = rc.senseNearbyWells();
-                    for (WellInfo r : nearbyWells)
-                        Communication.reportWell(rc, r.getMapLocation());
-
-                    // reporting stashed approxInt of islandLocs and deleting if succeeded
-                    ArrayList<Integer> delObj = new ArrayList<Integer>(0);
-                    for (Integer approxInt : Communication.stashedislandLocs) {
-                        if (Communication.reportIsland(rc, approxInt.intValue())) {
-                            System.out.printf("Successfully reported stashed aprroxLoc %d \n", approxInt);
-                            delObj.add(approxInt);
-                        }
-                    }
-                    for (Integer obj : delObj)
-                        Communication.stashedislandLocs.remove(obj);
-
-                    Communication.updateIslandType(rc);
-                    if (rc.getRoundNum() % 2 == 0)
-                        Communication.reportIsland(rc);
-                } else {
-                    Communication.clearObsoleteEnemies(rc); // remove outdated enemy locations
-                    RobotInfo[] nearbyEnemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-                    for (RobotInfo r : nearbyEnemies)
-                        Communication.reportEnemy(rc, r.getLocation());
-                }
-            }
-
-            // Try/catch blocks stop unhandled exceptions, which cause your robot to
-            // explode.
             try {
-                // The same run() function is called for every robot on your team, even if they
-                // are
-                // different types. Here, we separate the control depending on the RobotType, so
-                // we can
-                // use different strategies on different robots. If you wish, you are free to
-                // rewrite
-                // this into a different control structure!
+                if (rc.canWriteSharedArray(0, 0)) {
+                    Communication.reportAlive(rc); // report that we are alive!
+
+                    if (rc.getRoundNum() % 2 == 0) {
+                        WellInfo[] nearbyWells = rc.senseNearbyWells();
+                        for (WellInfo r : nearbyWells)
+                            Communication.reportWell(rc, r.getMapLocation());
+
+                        int stashSize = Communication.stashedislandLocs.size();
+                        if (stashSize > 0) {
+                            stashedislandLocs = new ArrayList<Integer>(Communication.stashedislandLocs);
+                            for (int i = stashSize; --i >= 0;) {
+                                Integer approxInt = stashedislandLocs.get(i);
+                                if (Communication.reportIsland(rc, approxInt.intValue())) {
+                                    System.out.printf("Successfully reported stashed aprroxLoc %d \n", approxInt);
+                                    Communication.stashedislandLocs.remove(approxInt);
+                                }
+                            }
+                        }
+
+                        Communication.updateIslandType(rc);
+                        Communication.reportIsland(rc);
+
+                    } else {
+                        Communication.clearObsoleteEnemies(rc); // remove outdated enemy locations
+                        RobotInfo[] nearbyEnemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+                        for (RobotInfo r : nearbyEnemies)
+                            Communication.reportEnemy(rc, r.getLocation());
+                    }
+                }
+
                 switch (rc.getType()) {
                     case HEADQUARTERS:
                         HeadQuarters.runHeadquarters(rc);
@@ -164,10 +148,10 @@ public strictfp class RobotPlayer {
                 // again.
                 try {
                     Communication.copySharedArray(rc);
-                } catch (GameActionException e) {
-                    System.out.println(rc.getType() + " Exception");
+                } catch (Exception e) {
                     e.printStackTrace();
                 }
+
                 Clock.yield();
             }
             // End of loop: go back to the top. Clock.yield() has ended, so it's time for

@@ -3,9 +3,9 @@ package examplefuncsplayer;
 import battlecode.common.*;
 
 import java.util.Arrays;
-import java.util.HashMap;
+// import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
+// import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
@@ -61,7 +61,7 @@ public strictfp class RobotPlayer {
      *           information on its current status. Essentially your portal to
      *           interacting with the world.
      **/
-    @SuppressWarnings("unused")
+    // @SuppressWarnings("unused")
     public static void run(RobotController rc) throws GameActionException {
 
         // Hello world! Standard output is very useful for debugging.
