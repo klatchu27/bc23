@@ -2,7 +2,7 @@ package bot1;
 
 import battlecode.common.*;
 
-// import java.util.Arrays;
+import java.util.ArrayList;
 // import java.util.HashMap;
 // import java.util.HashSet;
 // import java.util.Map;
@@ -92,8 +92,20 @@ public strictfp class RobotPlayer {
                     for (WellInfo r : nearbyWells)
                         Communication.reportWell(rc, r.getMapLocation());
 
+                    // reporting stashed approxInt of islandLocs and deleting if succeeded
+                    ArrayList<Integer> delObj = new ArrayList<Integer>(0);
+                    for (Integer approxInt : Communication.stashedislandLocs) {
+                        if (Communication.reportIsland(rc, approxInt.intValue())) {
+                            System.out.printf("Successfully reported stashed aprroxLoc %d \n", approxInt);
+                            delObj.add(approxInt);
+                        }
+                    }
+                    for (Integer obj : delObj)
+                        Communication.stashedislandLocs.remove(obj);
+
                     Communication.updateIslandType(rc);
-                    Communication.reportIsland(rc);
+                    if (rc.getRoundNum() % 2 == 0)
+                        Communication.reportIsland(rc);
                 } else {
                     Communication.clearObsoleteEnemies(rc); // remove outdated enemy locations
                     RobotInfo[] nearbyEnemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());

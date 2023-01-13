@@ -23,6 +23,8 @@ public strictfp class Amplifier {
     static void runAmplifier(RobotController rc) throws GameActionException {
         int exploreRadiusSquare = 8;
         if (rc.getRoundNum() % 2 == 0) {
+            if (clearLocation == null)
+                clearLocation = rc.getLocation();
             Communication.clearExploreLoc(rc, clearLocation, exploreRadiusSquare);
             clearLocation = null;
             needToClear = false;

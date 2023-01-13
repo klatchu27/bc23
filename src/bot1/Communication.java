@@ -2,20 +2,22 @@ package bot1;
 
 import battlecode.common.*;
 import java.util.ArrayList;
-import java.util.Arrays;
+// import java.util.Arrays;
 
 public strictfp class Communication {
     private static final int NUM_TYPES = 6;
-    private static final int MIN_ENEMY_IDX = 64 + 45;
-    private static final int MAX_ENEMY_IDX = 64 + 64;
-    private static final int MIN_WELL_IDX = 37;
-    private static final int MAX_WELL_IDX = 49;
+    // Array 0 bounds
     private static final int MIN_HQ_IDX = 13;
     private static final int MAX_HQ_IDX = 17;
     public static final int MIN_ISLAND_IDX = 17;
     public static final int MAX_ISLAND_IDX = 35;
     public static final int MIN_EXPLORE_IDX = 35;
     public static final int MAX_EXPLORE_IDX = 39;
+    private static final int MIN_WELL_IDX = 39;
+    private static final int MAX_WELL_IDX = 52;
+    // Array 1 bounds
+    private static final int MIN_ENEMY_IDX = 64 + 45;
+    private static final int MAX_ENEMY_IDX = 64 + 64;
 
     public static int thisRound = 0;
     public static int[][] sharedArrayCopy = new int[2][GameConstants.SHARED_ARRAY_LENGTH];
@@ -23,6 +25,9 @@ public strictfp class Communication {
     // variables for appprox location for island
     public static int scale = 2, scaledWidth = 0, scaledHeight = 0;
     public static int width = 0, height = 0;
+
+    // stashed write queries
+    public static ArrayList<Integer> stashedislandLocs = new ArrayList<Integer>(0);
 
     static void initialiseComms(RobotController rc) {
         width = rc.getMapWidth();
@@ -151,7 +156,7 @@ public strictfp class Communication {
      * @param radius if rc.getLocation().distanceSquaredTo(exploreLoc) < radius then
      *               it gets cleared
      */
-    static void clearExploreLoc(RobotController rc,MapLocation curLoc, int radius) {
+    static void clearExploreLoc(RobotController rc, MapLocation curLoc, int radius) {
         // check if we can write to the shared array b4 reporting
         if (!rc.canWriteSharedArray(0, 0))
             return;
@@ -267,10 +272,6 @@ public strictfp class Communication {
         if (!rc.canWriteSharedArray(0, 0))
             return;
 
-        // System.out.println(rc.getRoundNum());
-        // System.out.println(Arrays.toString(sharedArrayCopy[0]));
-        // System.out.println(Arrays.toString(sharedArrayCopy[1]));
-
         int slot = -1;
         for (int i = MIN_WELL_IDX; i < MAX_WELL_IDX; i++) {
             final int value;
@@ -291,6 +292,15 @@ public strictfp class Communication {
         }
         if (slot != -1) {
             try {
+
+                // System.out.printf("ALL wellLocs : ");
+                // for (int j = MIN_WELL_IDX; j < MAX_WELL_IDX; j++) {
+                // int val = readSharedArray(rc, j);
+                // if (val != 0)
+                // System.out.printf(" " + intToLocation(rc, val));
+                // }
+                // System.out.printf("\n");
+
                 System.out.println(String.format("reporting well location at (%d,%d)=%d", wellLoc.x, wellLoc.y,
                         locationToInt(rc, wellLoc)));
                 writeSharedArray(rc, slot, locationToInt(rc, wellLoc));
@@ -325,7 +335,6 @@ public strictfp class Communication {
             return;
 
         int[] islands = rc.senseNearbyIslands();
-        Team opponent = rc.getTeam().opponent();
         int islandType = 0;// 0 free, 1 own occupied, 2 enemy occupied
 
         for (int islandIdx : islands) {
@@ -333,9 +342,9 @@ public strictfp class Communication {
             MapLocation[] thisIslandLocs = null;
             try {
                 if (rc.senseAnchor(islandIdx) != null) {
-                    islandType = 1;
-                    if (rc.senseTeamOccupyingIsland(islandIdx) == opponent)
-                        islandType = 2;
+                    islandType = 2;
+                    if (rc.senseTeamOccupyingIsland(islandIdx) == rc.getTeam())
+                        islandType = 1;
                 }
                 thisIslandLocs = rc.senseNearbyIslandLocations(islandIdx);
 
@@ -344,59 +353,82 @@ public strictfp class Communication {
                 continue;
             }
 
-            for (MapLocation islandLoc : thisIslandLocs) {
-
-                try {
-                    if (rc.senseIsland(islandLoc) == -1)
-                        System.out.println(String.format("%d,%d is not an island", islandLoc.x, islandLoc.y));
-                } catch (GameActionException e) {
-                    ;
-                }
-
-                int slot = -1;
-                for (int i = MIN_ISLAND_IDX; i < MAX_ISLAND_IDX; i++) {
-                    int value;
-                    try {
-                        value = readSharedArray(rc, i);
-                    } catch (GameActionException e) {
-                        continue;
-                    }
-                    final MapLocation m = approxIntToApproxLocation(rc, value / 256);
-                    int oldIslandIdx = 0;
-                    value /= 4;
-                    for (int j = -1; ++j < 6; value /= 2)
-                        oldIslandIdx += (1 << j) * (value % 2);
-                    if (m == null && slot == -1) {
-                        slot = i;
-                    } else if (m != null && oldIslandIdx == islandIdx) {
-                        // this island id already exist !!
-                        slot = -1;
-                        break;
-                    }
-                }
-                if (slot != -1) {
-                    try {
-                        int approxInt = locationToApproxInt(rc, islandLoc);
-                        MapLocation approxLoc = approxIntToApproxLocation(rc, approxInt);
-                        int val = approxInt * 256 + islandIdx * 4 + islandType;
-
-                        rc.setIndicatorDot(islandLoc, 200, 0, 0);
-                        rc.setIndicatorDot(approxLoc, 0, 200, 0);
-                        System.out.println(
-                                String.format("Writing island:%d at (%d,%d) as [%d,%d] at index:%d val:%d",
-                                        islandIdx, islandLoc.x, islandLoc.y, approxLoc.x, approxLoc.y, slot, val));
-                        writeSharedArray(rc, slot,
-                                val);
-                        break;// write one location for one island only
-                    } catch (GameActionException e) {
-                        e.printStackTrace();
-                    }
-                }
-
-            }
-
+            for (MapLocation islandLoc : thisIslandLocs)
+                if (reportIsland(rc, locationToApproxInt(rc, islandLoc) * 256 + islandIdx * 4 + islandType))
+                    break;
         }
 
+    }
+
+    public static boolean reportIsland(RobotController rc, int approxInt) {
+        int islandIdx = (approxInt / 4) % (1 << 6);
+        int islandType = approxInt % 4;
+        MapLocation islandLoc = approxIntToApproxLocation(rc, approxInt / 256);
+
+        // try {
+        // if (rc.senseIsland(islandLoc) == -1)
+        // System.out.println(String.format("%d,%d is not an island", islandLoc.x,
+        // islandLoc.y));
+        // } catch (GameActionException e) {
+        // ;
+        // }
+
+        int slot = -1;
+        for (int i = MIN_ISLAND_IDX; i < MAX_ISLAND_IDX; i++) {
+            int value;
+            try {
+                value = readSharedArray(rc, i);
+            } catch (GameActionException e) {
+                continue;
+            }
+            final MapLocation m = approxIntToApproxLocation(rc, value / 256);
+            int oldIslandIdx = 0;
+            value /= 4;
+            for (int j = -1; ++j < 6; value /= 2)
+                oldIslandIdx += (1 << j) * (value % 2);
+            if (m == null && slot == -1) {
+                slot = i;
+            } else if (m != null && oldIslandIdx == islandIdx) {
+                // this island id already exist !!
+                slot = -1;
+                break;
+            }
+        }
+        if (slot != -1) {
+            try {
+                int approxIntMap = locationToApproxInt(rc, islandLoc);
+                MapLocation approxLoc = approxIntToApproxLocation(rc, approxIntMap);
+                int val = approxIntMap * 256 + islandIdx * 4 + islandType;
+
+                // System.out.printf("ALL islandIds : \n");
+                // for (int j = MIN_ISLAND_IDX; j < MAX_ISLAND_IDX; j++) {
+                // int val1 = readSharedArray(rc, j);
+                // if (val1 != 0)
+                // System.out.printf(" id:%d \n", (val1 / 4) % (1 << 6));
+                // }
+
+                if (rc.getRoundNum() % 2 == 0) {
+                    rc.setIndicatorDot(islandLoc, 200, 0, 0);
+                    rc.setIndicatorDot(approxLoc, 0, 200, 0);
+                    System.out.println(
+                            String.format("Writing island:%d at (%d,%d) as [%d,%d] at index:%d val:%d bcleft:%d",
+                                    islandIdx, islandLoc.x, islandLoc.y, approxLoc.x, approxLoc.y, slot, val,
+                                    Clock.getBytecodesLeft()));
+                    writeSharedArray(rc, slot, val);
+                    return true;
+                } else {
+                    System.out.printf("stashing islandLoc:" + islandLoc
+                            + String.format(" val:%d id:%d \n", approxInt, islandIdx));
+                    stashedislandLocs.add(new Integer(approxInt));
+                    return false;
+                }
+
+            } catch (GameActionException e) {
+                e.printStackTrace();
+                return false;
+            }
+        }
+        return false;
     }
 
     /**
