@@ -90,6 +90,28 @@ public strictfp class Carrier {
                 return;
             }
 
+            // better to implement as geting loc,id fromm comms && using
+            // rc.senseNearbyIslands(id)
+            // our islandLoc is approx
+            // hence when we are close to it check adjLoc for island
+            // this USES 65-500 bytecodes
+            if (curLoc.distanceSquaredTo(islandLocation) < 5) {
+                int bc = Clock.getBytecodesLeft();
+                outer: for (int dx = -1; dx <= 1; dx++) {
+                    for (int dy = -1; dy <= 1; dy++) {
+                        MapLocation newLoc = new MapLocation(curLoc.x + dx, curLoc.y + dy);
+                        if (newLoc.x >= 0 && newLoc.x < rc.getMapWidth() && newLoc.y >= 0
+                                && newLoc.y < rc.getMapHeight()) {
+                            if (rc.senseIsland(newLoc) != -1) {
+                                islandLocation = newLoc;
+                                break outer;
+                            }
+                        }
+                    }
+                }
+                System.out.printf("DELTA: bc used:%d \n", bc - Clock.getBytecodesLeft());
+            }
+
             if (rc.canPlaceAnchor()) {
                 rc.setIndicatorString("Huzzah, placed anchor!");
                 rc.placeAnchor();
