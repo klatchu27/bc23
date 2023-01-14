@@ -85,6 +85,15 @@ public strictfp class RobotPlayer {
                         for (WellInfo r : nearbyWells)
                             Communication.reportWell(rc, r.getMapLocation());
 
+                        Communication.clearObsoleteEnemies(rc); // remove outdated enemy locations
+                        RobotInfo[] nearbyEnemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+                        for (RobotInfo r : nearbyEnemies)
+                            Communication.reportEnemy(rc, r.getLocation());
+
+                        Communication.reportIsland(rc);
+
+                    } else {
+
                         int stashSize = Communication.stashedislandLocs.size();
                         if (stashSize > 0) {
                             stashedislandLocs = new ArrayList<Integer>(Communication.stashedislandLocs);
@@ -96,15 +105,8 @@ public strictfp class RobotPlayer {
                                 }
                             }
                         }
-
                         Communication.updateIslandType(rc);
-                        Communication.reportIsland(rc);
 
-                    } else {
-                        Communication.clearObsoleteEnemies(rc); // remove outdated enemy locations
-                        RobotInfo[] nearbyEnemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
-                        for (RobotInfo r : nearbyEnemies)
-                            Communication.reportEnemy(rc, r.getLocation());
                     }
                 }
 

@@ -21,6 +21,9 @@ public strictfp class Amplifier {
     static boolean needToClear = false;
 
     static void runAmplifier(RobotController rc) throws GameActionException {
+
+        rc.setIndicatorString(String.format("Entered runAmplifier bcleft:%d", Clock.getBytecodesLeft()));
+
         int exploreRadiusSquare = 8;
         if (rc.getRoundNum() % 2 == 0) {
             if (clearLocation == null)
