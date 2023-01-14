@@ -20,6 +20,10 @@ public strictfp class Communication {
     // Array 1 bounds
     public static final int MIN_ISLAND_IDX = 64 + 13;
     public static int MAX_ISLAND_IDX = 64 + 31;
+    public static final int MIN_REINFORCE_IDX = 64 + 31;
+    public static final int MAX_REINFORCE_IDX = 64 + 40;
+
+    public static final int reinforceMultiplier = 2;
 
     public static int thisRound = 0;
     public static int[][] sharedArrayCopy = new int[2][GameConstants.SHARED_ARRAY_LENGTH];
@@ -697,6 +701,99 @@ public strictfp class Communication {
                 return 5;
             default:
                 throw new RuntimeException("Unknown type: " + type);
+        }
+    }
+
+    public static void reportReinforcementLoc(RobotController rc, MapLocation loc, int count) {
+        // check if we can write to the shared array b4 reporting
+        if (!rc.canWriteSharedArray(0, 0))
+            return;
+
+        int slot = -1;
+        for (int i = MIN_REINFORCE_IDX; i < MAX_REINFORCE_IDX; i++) {
+            int value;
+            try {
+                value = readSharedArray(rc, i);
+            } catch (GameActionException e) {
+                continue;
+            }
+            MapLocation m = intToLocation(rc, value / 16);
+            if (m == null && slot == -1) {
+                slot = i;
+            } else if (m != null && loc.distanceSquaredTo(m) < 9) {
+                return;
+            }
+        }
+        if (slot != -1) {
+            try {
+                count = Math.max(1, (count / reinforceMultiplier));
+                count = Math.min(15, count);
+
+                System.out.println(String.format("requesting reinforcement at %d,%d at index:%d val:%d", loc.x, loc.y,
+                        slot, count));
+                writeSharedArray(rc, slot,
+                        locationToInt(rc, loc) * 16 + count);
+            } catch (GameActionException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    static MapLocation getClosestReinforcementLoc(RobotController rc) {
+        MapLocation answer = null, curLoc = rc.getLocation();
+
+        for (int i = MIN_REINFORCE_IDX; i < MAX_REINFORCE_IDX; i++) {
+            int value;
+            try {
+                value = readSharedArray(rc, i);
+            } catch (GameActionException e) {
+                continue;
+            }
+            final MapLocation m = intToLocation(rc, value / 16);
+            if (m != null && (answer == null
+                    || curLoc.distanceSquaredTo(m) < curLoc.distanceSquaredTo(answer))) {
+                answer = m;
+            }
+        }
+        return answer;
+    }
+
+    static boolean clearObsoleteReinforcementLoc(RobotController rc, MapLocation loc) {
+        try {
+            // System.out.printf("attempting to clear reinforcement\n");
+            for (int i = MIN_REINFORCE_IDX; i < MAX_REINFORCE_IDX; i++) {
+                int value;
+                try {
+                    value = readSharedArray(rc, i);
+                } catch (GameActionException e) {
+                    continue;
+                }
+                final MapLocation m = intToLocation(rc, value / 16);
+                if (m != null && m.equals(loc)) {
+
+                    int req = (value % 16) * reinforceMultiplier;
+                    RobotInfo[] ownTroops = rc.senseNearbyRobots(loc, -1, rc.getTeam());
+                    RobotInfo[] enemyTroops = rc.senseNearbyRobots(loc, -1, rc.getTeam().opponent());
+                    int ownCount = ownTroops.length - 1, enemyCount = 0;
+
+                    for (RobotInfo r : enemyTroops)
+                        if (r.getType() == RobotType.LAUNCHER)
+                            enemyCount++;
+
+                    System.out.printf("while clearing: enemy count:%d \n", enemyCount);
+
+                    if ((ownCount >= req || enemyCount == 0) && rc.getRoundNum() % 2 == 1) {
+                        System.out.printf("clearing reinforcement at %d,%d \n", loc.x, loc.y);
+                        writeSharedArray(rc, i, 0);
+                        return true;
+                    }
+                    return false;
+                }
+            }
+            return false;
+
+        } catch (GameActionException e) {
+            return false;
         }
     }
 

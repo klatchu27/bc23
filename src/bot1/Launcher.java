@@ -20,6 +20,7 @@ public class Launcher {
     };
 
     static MapLocation ownIslandLoc = null, enemyIslandLoc = null;
+    static MapLocation reinforcementLoc = null;
 
     /**
      * Run a single turn for a Launcher.
@@ -34,12 +35,25 @@ public class Launcher {
         RobotInfo[] enemies = rc.senseNearbyRobots(radius, opponent);
         if (enemies.length > 0) {
             MapLocation toAttack = enemies[0].getLocation();
-            // MapLocation toAttack = rc.getLocation().add(Direction.EAST);
-
             if (rc.canAttack(toAttack)) {
                 rc.setIndicatorString("Attacking");
                 rc.attack(toAttack);
             }
+        }
+
+        // go toward reinforcement Location
+        if (reinforcementLoc == null)
+            reinforcementLoc = Communication.getClosestReinforcementLoc(rc);
+
+        if (reinforcementLoc != null) {
+            rc.setIndicatorString("reinforcing:" + reinforcementLoc);
+            Pathing.walkTowards(rc, reinforcementLoc);
+            if (rc.getLocation().distanceSquaredTo(reinforcementLoc) < 5 && (rc.getRoundNum() % 2 == 1)) {
+                rc.setIndicatorString("tring to clear reinf" + reinforcementLoc);
+                if (Communication.clearObsoleteReinforcementLoc(rc, reinforcementLoc))
+                    reinforcementLoc = null;
+            }
+            return;
         }
 
         // go toward owned islands

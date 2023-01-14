@@ -59,6 +59,8 @@ public strictfp class HeadQuarters {
     static int totalResources = 0, adamantium = 0, mana = 0, resourceTypeRequired = 0;
     static int standardAnchors = 0, MIN_STANDARD_ANCHOR = 1;
 
+    static boolean underAttack = false;
+
     /**
      * Run a single turn for a Headquarters.
      * This code is wrapped inside the infinite loop in run(), so it is called once
@@ -66,7 +68,7 @@ public strictfp class HeadQuarters {
      */
     static void runHeadquarters(RobotController rc) throws GameActionException {
 
-        if (rc.getRoundNum() % 2 == 0)
+        if (rc.getRoundNum() % 4 == 0)
             addExplorationLoc(rc);
 
         MapLocation curLoc = rc.getLocation();
@@ -77,11 +79,67 @@ public strictfp class HeadQuarters {
 
         // calc the resource required an reporting to comms
         resourceTypeRequired = 2;
-        if (2 * mana > 3 * adamantium)
+        if (2 * mana > 3 * adamantium && underAttack == false)
             resourceTypeRequired = 1;// if Mn>1.5*Ad then set req to Ad
         if (standardAnchors > 0)
             resourceTypeRequired |= 4;
         rc.setIndicatorString(String.format("resourceTypeReq: %d", resourceTypeRequired));
+
+        if (rc.getRoundNum() % 2 <= 1) {
+
+            RobotInfo[] nearbyRobots = rc.senseNearbyRobots();
+            Team opponent = rc.getTeam().opponent();
+            int[] nearbyEnemyTroops = new int[NUM_TYPES];
+            int[] nearbyOwnTroops = new int[NUM_TYPES];
+            int nearbyEnemyTroopsCount = 0;
+            int nearbyOwnTroopsCount = 0;
+            for (RobotInfo r : nearbyRobots) {
+                if (r.getTeam() == opponent) {
+                    nearbyEnemyTroopsCount++;
+                    switch (r.getType()) {
+                        case CARRIER:
+                            nearbyEnemyTroops[Index.CARRIER.getIndex()]++;
+                        case LAUNCHER:
+                            nearbyEnemyTroops[Index.LAUNCHER.getIndex()]++;
+                        case AMPLIFIER:
+                            nearbyEnemyTroops[Index.AMPLIFIER.getIndex()]++;
+                        default:
+                            break;
+                    }
+                } else {
+                    nearbyOwnTroopsCount++;
+                    switch (r.getType()) {
+                        case CARRIER:
+                            nearbyOwnTroops[Index.CARRIER.getIndex()]++;
+                        case LAUNCHER:
+                            nearbyOwnTroops[Index.LAUNCHER.getIndex()]++;
+                        case AMPLIFIER:
+                            nearbyOwnTroops[Index.AMPLIFIER.getIndex()]++;
+                        default:
+                            break;
+                    }
+                }
+            }
+            System.out.printf("nearby ally troops count:%d , enemy troops count:%d \n", nearbyOwnTroopsCount,
+                    nearbyEnemyTroopsCount);
+            if (nearbyEnemyTroopsCount > 0) {
+
+                if (nearbyEnemyTroopsCount >= nearbyOwnTroops[Index.LAUNCHER.getIndex()]) {
+
+                    underAttack = true;
+                    rc.setIndicatorString("HELP needed at HQ");
+                    System.out.printf("HELP needed at HQ \n");
+
+                    if (rc.getRoundNum() % 2 == 1)
+                        Communication.reportReinforcementLoc(rc, curLoc,
+                                nearbyEnemyTroopsCount - nearbyOwnTroops[Index.LAUNCHER
+                                        .getIndex()] / 2);
+                    build(rc, RobotType.LAUNCHER);
+                }
+                // call for reinforcement here
+            }
+
+        }
 
         if (rc.getRoundNum() % 2 == 0)
             Communication.reportOwnHQ(rc, curLoc, resourceTypeRequired);

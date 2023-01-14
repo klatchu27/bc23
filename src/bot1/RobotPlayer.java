@@ -91,7 +91,7 @@ public strictfp class RobotPlayer {
                             if (r.getType() != RobotType.HEADQUARTERS)
                                 Communication.reportEnemy(rc, r.getLocation());
                             else
-                                Communication.reportEnemyHQ(rc, r.getLocation(), r.getID());
+                                Communication.reportEnemyHQ(rc, r.getLocation(), r.getID() % 16);
 
                         Communication.reportIsland(rc);
 
