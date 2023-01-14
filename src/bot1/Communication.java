@@ -9,15 +9,15 @@ public strictfp class Communication {
     // Array 0 bounds
     private static final int MIN_HQ_IDX = 13;
     private static final int MAX_HQ_IDX = 17;
-    public static final int MIN_ISLAND_IDX = 17;
-    public static final int MAX_ISLAND_IDX = 35;
+    private static final int MIN_ENEMY_IDX = 17;
+    private static final int MAX_ENEMY_IDX = 35;
     public static final int MIN_EXPLORE_IDX = 35;
     public static final int MAX_EXPLORE_IDX = 39;
     private static final int MIN_WELL_IDX = 39;
     private static final int MAX_WELL_IDX = 52;
     // Array 1 bounds
-    private static final int MIN_ENEMY_IDX = 64 + 45;
-    private static final int MAX_ENEMY_IDX = 64 + 64;
+    public static final int MIN_ISLAND_IDX = 64 + 17;
+    public static final int MAX_ISLAND_IDX = 64 + 35;
 
     public static int thisRound = 0;
     public static int[][] sharedArrayCopy = new int[2][GameConstants.SHARED_ARRAY_LENGTH];
@@ -408,7 +408,7 @@ public strictfp class Communication {
                 // System.out.printf(" id:%d \n", (val1 / 4) % (1 << 6));
                 // }
 
-                if (rc.getRoundNum() % 2 == 0) {
+                if (rc.getRoundNum() % 2 == 1) {
                     rc.setIndicatorDot(islandLoc, 200, 0, 0);
                     rc.setIndicatorDot(approxLoc, 0, 200, 0);
                     System.out.println(

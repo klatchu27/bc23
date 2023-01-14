@@ -97,14 +97,14 @@ public strictfp class RobotPlayer {
                             }
                         }
 
-                        Communication.updateIslandType(rc);
-                        Communication.reportIsland(rc);
-
-                    } else {
                         Communication.clearObsoleteEnemies(rc); // remove outdated enemy locations
                         RobotInfo[] nearbyEnemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
                         for (RobotInfo r : nearbyEnemies)
                             Communication.reportEnemy(rc, r.getLocation());
+
+                    } else {
+                        Communication.updateIslandType(rc);
+                        Communication.reportIsland(rc);
                     }
                 }
 
