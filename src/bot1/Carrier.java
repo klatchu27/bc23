@@ -22,7 +22,14 @@ public strictfp class Carrier {
     static int MAX_RESOURCE = 38;
     static MapLocation islandLocation = null;
     static int islandId = -1;
+    static final int[] deltaX = { -1, 0, 1, 1, 1, 0, -1, -1 };
+    static final int[] deltaY = { 1, 1, 1, 0, -1, -1, -1, 0 };
 
+    // static final int[] deltaX = { -1, 0, 1, 2, 2, 2, 2, -1, 0, 1, 1, 1, 0, -1, -1
+    // };
+    // static final int[] deltaY = { 2, 2, 2, 2, 1, 0, -1, 1, 1, 1, 0, -1, -1, -1, 0
+    // };
+    //
     /**
      * Run a single turn for a Carrier.
      * This code is wrapped inside the infinite loop in run(), so it is called once
@@ -94,22 +101,25 @@ public strictfp class Carrier {
             // rc.senseNearbyIslands(id)
             // our islandLoc is approx
             // hence when we are close to it check adjLoc for island
-            // this USES 65-500 bytecodes
-            if (curLoc.distanceSquaredTo(islandLocation) < 5) {
-                int bc = Clock.getBytecodesLeft();
-                outer: for (int dx = -1; dx <= 1; dx++) {
-                    for (int dy = -1; dy <= 1; dy++) {
-                        MapLocation newLoc = new MapLocation(curLoc.x + dx, curLoc.y + dy);
+            // this USES 25-149 bytecodes
+            if (curLoc.distanceSquaredTo(islandLocation) <= 4) {
+                if (rc.senseIsland(islandLocation) == -1) {
+                    for (int i = deltaX.length; --i >= 0;) {
+                        MapLocation newLoc = new MapLocation(islandLocation.x + deltaX[i],
+                                islandLocation.y + deltaY[i]);
                         if (newLoc.x >= 0 && newLoc.x < rc.getMapWidth() && newLoc.y >= 0
                                 && newLoc.y < rc.getMapHeight()) {
-                            if (rc.senseIsland(newLoc) != -1) {
-                                islandLocation = newLoc;
-                                break outer;
+                            try {
+                                if (rc.senseIsland(newLoc) != -1) {
+                                    islandLocation = newLoc;
+                                    break;
+                                }
+                            } catch (GameActionException e) {
+                                continue;
                             }
                         }
                     }
                 }
-                System.out.printf("DELTA: bc used:%d \n", bc - Clock.getBytecodesLeft());
             }
 
             if (rc.canPlaceAnchor()) {

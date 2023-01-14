@@ -17,7 +17,7 @@ public strictfp class Communication {
     private static final int MAX_WELL_IDX = 52;
     // Array 1 bounds
     public static final int MIN_ISLAND_IDX = 64 + 17;
-    public static final int MAX_ISLAND_IDX = 64 + 35;
+    public static int MAX_ISLAND_IDX = 64 + 35;
 
     public static int thisRound = 0;
     public static int[][] sharedArrayCopy = new int[2][GameConstants.SHARED_ARRAY_LENGTH];
@@ -32,11 +32,15 @@ public strictfp class Communication {
     static void initialiseComms(RobotController rc) {
         width = rc.getMapWidth();
         height = rc.getMapHeight();
-        scale = 2;
-        if (width * height > (1 << 10))// change later to more accurate
+        scale = 1;
+        if (width * height + 1 >= (1 << 8))
+            scale = 2;
+        if (width * height + 1 >= (1 << 10))// change later to more accurate
             scale = 4;
         scaledWidth = (width + scale - 1) / scale;
         scaledHeight = (height + scale - 1) / scale;
+
+        MAX_ISLAND_IDX = Math.min(MIN_ISLAND_IDX + rc.getIslandCount(), MAX_ISLAND_IDX);
         return;
     }
 
@@ -365,14 +369,6 @@ public strictfp class Communication {
         int islandType = approxInt % 4;
         MapLocation islandLoc = approxIntToApproxLocation(rc, approxInt / 256);
 
-        // try {
-        // if (rc.senseIsland(islandLoc) == -1)
-        // System.out.println(String.format("%d,%d is not an island", islandLoc.x,
-        // islandLoc.y));
-        // } catch (GameActionException e) {
-        // ;
-        // }
-
         int slot = -1;
         for (int i = MIN_ISLAND_IDX; i < MAX_ISLAND_IDX; i++) {
             int value;
@@ -382,17 +378,16 @@ public strictfp class Communication {
                 continue;
             }
             final MapLocation m = approxIntToApproxLocation(rc, value / 256);
-            int oldIslandIdx = 0;
-            value /= 4;
-            for (int j = -1; ++j < 6; value /= 2)
-                oldIslandIdx += (1 << j) * (value % 2);
+            int oldIslandIdx = (value /= 4) % (1 << 6);
+
             if (m == null && slot == -1) {
                 slot = i;
-            } else if (m != null && oldIslandIdx == islandIdx) {
-                // this island id already exist !!
-                slot = -1;
-                // System.out.printf("islnad already exist: %d \n", oldIslandIdx);
-                return false;
+            } else {
+                if (m != null && oldIslandIdx == islandIdx) {
+                    // this island id already exist !!
+                    slot = -1;
+                    return false;
+                }
             }
         }
         if (slot != -1) {
@@ -401,14 +396,10 @@ public strictfp class Communication {
                 MapLocation approxLoc = approxIntToApproxLocation(rc, approxIntMap);
                 int val = approxIntMap * 256 + islandIdx * 4 + islandType;
 
-                // System.out.printf("ALL islandIds : \n");
-                // for (int j = MIN_ISLAND_IDX; j < MAX_ISLAND_IDX; j++) {
-                // int val1 = readSharedArray(rc, j);
-                // if (val1 != 0)
-                // System.out.printf(" id:%d \n", (val1 / 4) % (1 << 6));
-                // }
-
                 if (rc.getRoundNum() % 2 == 1) {
+
+                    // System.out.println(existingIds);
+
                     rc.setIndicatorDot(islandLoc, 200, 0, 0);
                     rc.setIndicatorDot(approxLoc, 0, 200, 0);
                     System.out.println(
@@ -422,10 +413,11 @@ public strictfp class Communication {
                     // if (rc.getType() == RobotType.AMPLIFIER)
                     // return false;
 
-                    System.out.printf("stashing islandLoc:" + islandLoc
-                            + String.format(" val:%d id:%d \n", approxInt, islandIdx));
-                    if (stashedislandLocs.contains(new Integer(approxInt)) == false)
+                    if (checkAlreadyStashed(approxInt) == false) {
+                        System.out.printf("stashing islandLoc:" + islandLoc
+                                + String.format(" val:%d id:%d \n", approxInt, islandIdx));
                         stashedislandLocs.add(new Integer(approxInt));
+                    }
                     return false;
                 }
 
@@ -435,6 +427,17 @@ public strictfp class Communication {
             }
         } else {
             System.out.printf("no slots available for island \n");
+        }
+        return false;
+    }
+
+    static boolean checkAlreadyStashed(int approxInt) {
+        int islandId = (approxInt / 4) % (1 << 6);
+        for (Integer x : stashedislandLocs) {
+            int id = (x.intValue() / 4) % (1 << 6);
+            if (id == islandId) {
+                return true;
+            }
         }
         return false;
     }
@@ -482,6 +485,22 @@ public strictfp class Communication {
                 answer.add(m);
             }
         }
+        return answer;
+    }
+
+    static int gettotalIslandsReported(RobotController rc) {
+        int answer = 0;
+        for (int i = MIN_ISLAND_IDX; i < MAX_ISLAND_IDX; i++) {
+            int value = 0;
+            try {
+                value = readSharedArray(rc, i);
+                if (value != 0)
+                    answer++;
+            } catch (GameActionException e) {
+                continue;
+            }
+        }
+        System.out.println("func called");
         return answer;
     }
 
