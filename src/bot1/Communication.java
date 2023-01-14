@@ -9,15 +9,17 @@ public strictfp class Communication {
     // Array 0 bounds
     private static final int MIN_HQ_IDX = 13;
     private static final int MAX_HQ_IDX = 17;
-    private static final int MIN_ENEMY_IDX = 17;
-    private static final int MAX_ENEMY_IDX = 35;
-    public static final int MIN_EXPLORE_IDX = 35;
-    public static final int MAX_EXPLORE_IDX = 39;
-    private static final int MIN_WELL_IDX = 39;
-    private static final int MAX_WELL_IDX = 52;
+    private static final int MIN_ENEMYHQ_IDX = 13 + 4;
+    private static final int MAX_ENEMYHQ_IDX = 17 + 4;
+    private static final int MIN_ENEMY_IDX = 17 + 4;
+    private static final int MAX_ENEMY_IDX = 35 + 4;
+    public static final int MIN_EXPLORE_IDX = 35 + 4;
+    public static final int MAX_EXPLORE_IDX = 39 + 4;
+    private static final int MIN_WELL_IDX = 39 + 4;
+    private static final int MAX_WELL_IDX = 52 + 4;
     // Array 1 bounds
-    public static final int MIN_ISLAND_IDX = 64 + 17;
-    public static int MAX_ISLAND_IDX = 64 + 35;
+    public static final int MIN_ISLAND_IDX = 64 + 13;
+    public static int MAX_ISLAND_IDX = 64 + 31;
 
     public static int thisRound = 0;
     public static int[][] sharedArrayCopy = new int[2][GameConstants.SHARED_ARRAY_LENGTH];
@@ -579,6 +581,36 @@ public strictfp class Communication {
         }
     }
 
+    static void reportEnemyHQ(RobotController rc, MapLocation enemyHQ, int idHQ) {
+        // check if we can write to the shared array b4 reporting
+        if (!rc.canWriteSharedArray(0, 0))
+            return;
+
+        int slot = -1;
+        for (int i = MIN_ENEMYHQ_IDX; i < MAX_ENEMYHQ_IDX; i++) {
+            final int value;
+            try {
+                value = readSharedArray(rc, i);
+            } catch (GameActionException e) {
+                continue;
+            }
+            int id = value % 16;
+            if (id == 0 && slot == -1) {
+                slot = i;
+            } else if (id == idHQ) {
+                return;
+            }
+        }
+        if (slot != -1) {
+            try {
+                System.out.println(String.format("reporting ENEMYHQ at %d,%d at index:%d", enemyHQ.x, enemyHQ.y, slot));
+                writeSharedArray(rc, slot, locationToInt(rc, enemyHQ) * 16 + idHQ);
+            } catch (GameActionException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
     static MapLocation getClosestEnemy(RobotController rc) {
         MapLocation answer = null;
         for (int i = MIN_ENEMY_IDX; i < MAX_ENEMY_IDX; i++) {
@@ -590,6 +622,34 @@ public strictfp class Communication {
             }
             final MapLocation m = intToLocation(rc, value);
             if (m != null && (answer == null
+                    || rc.getLocation().distanceSquaredTo(m) < rc.getLocation().distanceSquaredTo(answer))) {
+                answer = m;
+            }
+        }
+        return answer;
+    }
+
+    /**
+     * if idHQ==-1 ,it returns the closest enemyHQ of any id else it returns the
+     * enemyHQ whose id==idHQ
+     * 
+     * @param rc
+     * @param idHQ -1 if not looking for a particular HQ
+     * @return
+     */
+
+    static MapLocation getClosestEnemyHQ(RobotController rc, int idHQ) {
+        MapLocation answer = null;
+        for (int i = MIN_ENEMY_IDX; i < MAX_ENEMY_IDX; i++) {
+            final int value;
+            try {
+                value = readSharedArray(rc, i);
+            } catch (GameActionException e) {
+                continue;
+            }
+            final MapLocation m = intToLocation(rc, value / 16);
+            int id = value % 16;
+            if (m != null && (idHQ == -1 || idHQ == id) && (answer == null
                     || rc.getLocation().distanceSquaredTo(m) < rc.getLocation().distanceSquaredTo(answer))) {
                 answer = m;
             }

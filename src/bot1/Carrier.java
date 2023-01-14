@@ -125,7 +125,7 @@ public strictfp class Carrier {
             if (rc.canPlaceAnchor()) {
                 rc.setIndicatorString("Huzzah, placed anchor!");
                 rc.placeAnchor();
-                if (rc.getRoundNum() % 2 == 0)
+                if (rc.getRoundNum() % 2 == 1)
                     Communication.updateIslandType(rc);
                 islandId = -1;
                 islandLocation = null;

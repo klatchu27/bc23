@@ -88,7 +88,10 @@ public strictfp class RobotPlayer {
                         Communication.clearObsoleteEnemies(rc); // remove outdated enemy locations
                         RobotInfo[] nearbyEnemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
                         for (RobotInfo r : nearbyEnemies)
-                            Communication.reportEnemy(rc, r.getLocation());
+                            if (r.getType() != RobotType.HEADQUARTERS)
+                                Communication.reportEnemy(rc, r.getLocation());
+                            else
+                                Communication.reportEnemyHQ(rc, r.getLocation(), r.getID());
 
                         Communication.reportIsland(rc);
 
