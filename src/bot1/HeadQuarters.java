@@ -40,7 +40,7 @@ public strictfp class HeadQuarters {
     static int exploreX = 0, exploreY = 0, scaleX = 3, scaleY = 3;
 
     static int totalResources = 0, adamantium = 0, mana = 0, resourceTypeRequired = 0;
-    static int standardAnchors = 0, MIN_STANDARD_ANCHOR = 1;
+    static int standardAnchors = 0, MIN_STANDARD_ANCHOR = 2;
     static MapLocation curLoc = null;
     static boolean underAttack = false;
 
@@ -88,6 +88,9 @@ public strictfp class HeadQuarters {
                 rc.setIndicatorString("Building anchor! " + rc.getNumAnchors(Anchor.STANDARD));
             }
         }
+
+        if (rc.getRobotCount() > 50 && standardAnchors < MIN_STANDARD_ANCHOR)
+            return;
 
         if (troopsAlive[1] < minTroops[1] && 50 * troopsBuilt[1] < round * maxTroopsBuilt[1] && rc.isActionReady())
             build(rc, RobotType.CARRIER);
