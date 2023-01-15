@@ -3,7 +3,7 @@ package bot1;
 import battlecode.common.*;
 
 import java.util.Random;
-import java.util.Arrays;
+// import java.util.Arrays;
 
 public strictfp class HeadQuarters {
 
@@ -27,31 +27,21 @@ public strictfp class HeadQuarters {
             RobotType.DESTABILIZER,
     };
 
-    public enum Index {
-        HEADQUARTERS(0), CARRIER(1), LAUNCHER(2), AMPLIFIER(3), BOOSTER(4), DESTABILIZER(5);
-
-        private final int index;
-
-        private Index(int index) {
-            this.index = index;
-        }
-
-        public int getIndex() {
-            return index;
-        }
-    }
-
     private static final int NUM_TYPES = 6;
     static int[] troopsAlive = new int[NUM_TYPES];
-    // static double[] minTroops = { 0.0, 4.0, 1.0, 2.0, 0.0, 0.0 };
-    static int[] minTroops = { 0, 1, 1, 1, 0, 0 };
+    static int[] troopsBuilt = new int[NUM_TYPES];
+    static int anchorsBuilt = 0;
+
+    static double[] minTroops = { 0, 4, 4, 2, 0, 0 };
+    static int[] maxTroopsBuilt = { 0, 100, 100, 3, 0, 0 };
+    static int maxAnchorsBuilt = 3;
 
     static int[][] ExplorationHeatMap = null;
     static int exploreX = 0, exploreY = 0, scaleX = 3, scaleY = 3;
 
     static int totalResources = 0, adamantium = 0, mana = 0, resourceTypeRequired = 0;
     static int standardAnchors = 0, MIN_STANDARD_ANCHOR = 1;
-
+    static MapLocation curLoc = null;
     static boolean underAttack = false;
 
     /**
@@ -64,7 +54,7 @@ public strictfp class HeadQuarters {
         if (rc.getRoundNum() % 4 == 0)
             addExplorationLoc(rc);
 
-        MapLocation curLoc = rc.getLocation();
+        curLoc = rc.getLocation();
         adamantium = rc.getResourceAmount(ResourceType.ADAMANTIUM);
         mana = rc.getResourceAmount(ResourceType.MANA);
         totalResources = adamantium + mana;
@@ -72,75 +62,14 @@ public strictfp class HeadQuarters {
 
         // calc the resource required an reporting to comms: 2->corresonponds to MANA
         resourceTypeRequired = 2;
-        if (2 * mana > 3 * adamantium && underAttack == false)
-            resourceTypeRequired = 1;// if Mn>1.5*Ad then set req to Ad
+        if (10 * mana > 13 * adamantium && underAttack == false)
+            resourceTypeRequired = 1;// if Mn>1.3*Ad then set req to Ad
         if (standardAnchors > 0)
             resourceTypeRequired |= 4;
         rc.setIndicatorString(String.format("resourceTypeReq: %d", resourceTypeRequired));
 
-        if (rc.getRoundNum() % 2 <= 1) {
-
-            RobotInfo[] nearbyRobots = rc.senseNearbyRobots();
-            Team opponent = rc.getTeam().opponent();
-            int[] nearbyEnemyTroops = new int[NUM_TYPES];
-            int[] nearbyOwnTroops = new int[NUM_TYPES];
-            int nearbyEnemyTroopsCount = 0;
-            int nearbyOwnTroopsCount = 0;
-            for (RobotInfo r : nearbyRobots) {
-                if (r.getTeam() == opponent) {
-                    switch (r.getType()) {
-                        case CARRIER:
-                            nearbyEnemyTroops[Index.CARRIER.getIndex()]++;
-                            break;
-                        case LAUNCHER:
-                            nearbyEnemyTroops[Index.LAUNCHER.getIndex()]++;
-                            nearbyEnemyTroopsCount++;
-                            break;
-                        case AMPLIFIER:
-                            nearbyEnemyTroops[Index.AMPLIFIER.getIndex()]++;
-                            break;
-                        default:
-                            break;
-                    }
-                } else {
-                    switch (r.getType()) {
-                        case CARRIER:
-                            nearbyOwnTroops[Index.CARRIER.getIndex()]++;
-                            break;
-                        case LAUNCHER:
-                            nearbyOwnTroops[Index.LAUNCHER.getIndex()]++;
-                            nearbyOwnTroopsCount++;
-                            break;
-                        case AMPLIFIER:
-                            nearbyOwnTroops[Index.AMPLIFIER.getIndex()]++;
-                            break;
-                        default:
-                            break;
-                    }
-                }
-            }
-            // System.out.printf("nearby ally troops count:%d , enemy troops count:%d \n",
-            // nearbyOwnTroopsCount,
-            // nearbyEnemyTroopsCount);
-            if (nearbyEnemyTroopsCount > 0) {
-
-                if (nearbyEnemyTroopsCount >= nearbyOwnTroops[Index.LAUNCHER.getIndex()]
-                        && nearbyEnemyTroopsCount > 0) {
-
-                    underAttack = true;
-                    rc.setIndicatorString("HELP needed at HQ");
-                    System.out.printf("HELP needed at HQ \n");
-
-                    if (rc.getRoundNum() % 2 == 1)
-                        Communication.reportReinforcementLoc(rc, curLoc,
-                                nearbyEnemyTroopsCount - nearbyOwnTroops[Index.LAUNCHER
-                                        .getIndex()] / 2);
-                    build(rc, RobotType.LAUNCHER);
-                } else
-                    underAttack = false;
-
-            }
-
+        if (rc.getRoundNum() % 2 == 1) {
+            checkEnemyActivity(rc);
         }
 
         if (rc.getRoundNum() % 2 == 0)
@@ -150,42 +79,38 @@ public strictfp class HeadQuarters {
         for (int i = NUM_TYPES; --i >= 0;)
             troopsAlive[i] = Communication.getAlive(rc, troopTypes[i]);
 
+        // build order logic
         int round = rc.getRoundNum();
-
-        if (round > 200 && standardAnchors < MIN_STANDARD_ANCHOR) {
-            if (rc.canBuildAnchor(Anchor.STANDARD)) {
+        if (round > 100 && 50 * anchorsBuilt < round * maxAnchorsBuilt && standardAnchors < MIN_STANDARD_ANCHOR) {
+            if (rc.canBuildAnchor(Anchor.STANDARD) && rc.isActionReady()) {
                 rc.buildAnchor(Anchor.STANDARD);
+                anchorsBuilt++;
                 rc.setIndicatorString("Building anchor! " + rc.getNumAnchors(Anchor.STANDARD));
             }
         }
-        if (troopsAlive[Index.AMPLIFIER.getIndex()] < minTroops[Index.AMPLIFIER.getIndex()])
-            build(rc, RobotType.AMPLIFIER);
-        if (mana >= 60)
+
+        if (troopsAlive[1] < minTroops[1] && 50 * troopsBuilt[1] < round * maxTroopsBuilt[1] && rc.isActionReady())
             build(rc, RobotType.CARRIER);
-        if (adamantium >= 50)
+        if (troopsAlive[2] < minTroops[2] && 50 * troopsBuilt[2] < round * maxTroopsBuilt[2] && rc.isActionReady())
+            build(rc, RobotType.LAUNCHER);
+        if (troopsAlive[3] < minTroops[3] && 50 * troopsBuilt[3] < round * maxTroopsBuilt[3] && rc.isActionReady())
+            build(rc, RobotType.AMPLIFIER);
+
+        if (mana >= 60 && rc.isActionReady())
+            build(rc, RobotType.LAUNCHER);
+        if (adamantium >= 50 && rc.isActionReady())
             build(rc, RobotType.CARRIER);
 
     }
 
     static boolean build(RobotController rc, RobotType type) throws GameActionException {
-        MapLocation curLoc = rc.getLocation();
         for (Direction d : directions) {
-            MapLocation newLoc = curLoc.add(d);
+            final MapLocation newLoc = curLoc.add(d);
             if (rc.canBuildRobot(type, newLoc)) {
                 rc.buildRobot(type, newLoc);
-                switch (type) {
-                    case CARRIER:
-                        troopsAlive[Index.CARRIER.getIndex()]++;
-                        return true;
-                    case LAUNCHER:
-                        troopsAlive[Index.LAUNCHER.getIndex()]++;
-                        return true;
-                    case AMPLIFIER:
-                        troopsAlive[Index.AMPLIFIER.getIndex()]++;
-                        return true;
-                    default:
-                        return true;
-                }
+                troopsAlive[typeToIndex(type)]++;
+                troopsBuilt[typeToIndex(type)]++;
+                return true;
             }
         }
         return false;
@@ -210,6 +135,57 @@ public strictfp class HeadQuarters {
             }
         }
 
+    }
+
+    public static void checkEnemyActivity(RobotController rc) throws GameActionException {
+        RobotInfo[] nearbyRobots = rc.senseNearbyRobots();
+        Team opponent = rc.getTeam().opponent();
+        int[] nearbyEnemyTroops = new int[NUM_TYPES];
+        int[] nearbyOwnTroops = new int[NUM_TYPES];
+        int nearbyEnemyTroopsCount = 0;
+        for (RobotInfo r : nearbyRobots) {
+            if (r.getTeam() == opponent) {
+                nearbyEnemyTroops[typeToIndex(r.getType())]++;
+            } else {
+                nearbyOwnTroops[typeToIndex(r.getType())]++;
+            }
+        }
+
+        if (nearbyEnemyTroopsCount > 0) {
+            if (nearbyEnemyTroopsCount >= nearbyOwnTroops[typeToIndex(
+                    RobotType.LAUNCHER)]
+                    && nearbyEnemyTroopsCount > 0) {
+
+                underAttack = true;
+                rc.setIndicatorString("HELP needed at HQ");
+                System.out.printf("HELP needed at HQ \n");
+
+                if (rc.getRoundNum() % 2 == 1)
+                    Communication.reportReinforcementLoc(rc, curLoc,
+                            nearbyEnemyTroopsCount - nearbyOwnTroops[2] / 2);
+                build(rc, RobotType.LAUNCHER);
+            } else
+                underAttack = false;
+        }
+    }
+
+    private static int typeToIndex(RobotType type) {
+        switch (type) {
+            case HEADQUARTERS:
+                return 0;
+            case CARRIER:
+                return 1;
+            case LAUNCHER:
+                return 2;
+            case AMPLIFIER:
+                return 3;
+            case BOOSTER:
+                return 4;
+            case DESTABILIZER:
+                return 5;
+            default:
+                throw new RuntimeException("Unknown type: " + type);
+        }
     }
 
 }
