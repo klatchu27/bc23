@@ -3,7 +3,7 @@ package bot1;
 import battlecode.common.*;
 
 import java.util.Random;
-// import java.util.Arrays;
+import java.util.Arrays;
 
 public strictfp class HeadQuarters {
 
@@ -43,16 +43,9 @@ public strictfp class HeadQuarters {
 
     private static final int NUM_TYPES = 6;
     static int[] troopsAlive = new int[NUM_TYPES];
-    static double[] minTroops = { 0.0, 4.0, 1.0, 2.0, 0.0, 0.0 };
+    // static double[] minTroops = { 0.0, 4.0, 1.0, 2.0, 0.0, 0.0 };
+    static int[] minTroops = { 0, 1, 1, 1, 0, 0 };
 
-    // this order is executed in reverse to save bytecode
-    static final int[] indexOfTroopsBuildOrder = {
-            Index.DESTABILIZER.getIndex(),
-            Index.BOOSTER.getIndex(),
-            Index.AMPLIFIER.getIndex(),
-            Index.LAUNCHER.getIndex(),
-            Index.CARRIER.getIndex(),
-    };
     static int[][] ExplorationHeatMap = null;
     static int exploreX = 0, exploreY = 0, scaleX = 3, scaleY = 3;
 
@@ -77,7 +70,7 @@ public strictfp class HeadQuarters {
         totalResources = adamantium + mana;
         standardAnchors = rc.getNumAnchors(Anchor.STANDARD);
 
-        // calc the resource required an reporting to comms
+        // calc the resource required an reporting to comms: 2->corresonponds to MANA
         resourceTypeRequired = 2;
         if (2 * mana > 3 * adamantium && underAttack == false)
             resourceTypeRequired = 1;// if Mn>1.5*Ad then set req to Ad
@@ -95,36 +88,44 @@ public strictfp class HeadQuarters {
             int nearbyOwnTroopsCount = 0;
             for (RobotInfo r : nearbyRobots) {
                 if (r.getTeam() == opponent) {
-                    nearbyEnemyTroopsCount++;
                     switch (r.getType()) {
                         case CARRIER:
                             nearbyEnemyTroops[Index.CARRIER.getIndex()]++;
+                            break;
                         case LAUNCHER:
                             nearbyEnemyTroops[Index.LAUNCHER.getIndex()]++;
+                            nearbyEnemyTroopsCount++;
+                            break;
                         case AMPLIFIER:
                             nearbyEnemyTroops[Index.AMPLIFIER.getIndex()]++;
+                            break;
                         default:
                             break;
                     }
                 } else {
-                    nearbyOwnTroopsCount++;
                     switch (r.getType()) {
                         case CARRIER:
                             nearbyOwnTroops[Index.CARRIER.getIndex()]++;
+                            break;
                         case LAUNCHER:
                             nearbyOwnTroops[Index.LAUNCHER.getIndex()]++;
+                            nearbyOwnTroopsCount++;
+                            break;
                         case AMPLIFIER:
                             nearbyOwnTroops[Index.AMPLIFIER.getIndex()]++;
+                            break;
                         default:
                             break;
                     }
                 }
             }
-            System.out.printf("nearby ally troops count:%d , enemy troops count:%d \n", nearbyOwnTroopsCount,
-                    nearbyEnemyTroopsCount);
+            // System.out.printf("nearby ally troops count:%d , enemy troops count:%d \n",
+            // nearbyOwnTroopsCount,
+            // nearbyEnemyTroopsCount);
             if (nearbyEnemyTroopsCount > 0) {
 
-                if (nearbyEnemyTroopsCount >= nearbyOwnTroops[Index.LAUNCHER.getIndex()]) {
+                if (nearbyEnemyTroopsCount >= nearbyOwnTroops[Index.LAUNCHER.getIndex()]
+                        && nearbyEnemyTroopsCount > 0) {
 
                     underAttack = true;
                     rc.setIndicatorString("HELP needed at HQ");
@@ -135,8 +136,9 @@ public strictfp class HeadQuarters {
                                 nearbyEnemyTroopsCount - nearbyOwnTroops[Index.LAUNCHER
                                         .getIndex()] / 2);
                     build(rc, RobotType.LAUNCHER);
-                }
-                // call for reinforcement here
+                } else
+                    underAttack = false;
+
             }
 
         }
@@ -148,21 +150,21 @@ public strictfp class HeadQuarters {
         for (int i = NUM_TYPES; --i >= 0;)
             troopsAlive[i] = Communication.getAlive(rc, troopTypes[i]);
 
-        // System.out.println(Arrays.toString(troopsAlive));
-        double thresholdIndex = totalResources / 200.0;
-        for (int i = indexOfTroopsBuildOrder.length; --i > 0;)
-            if (troopsAlive[indexOfTroopsBuildOrder[i]] < Math.max(1,
-                    Math.floor(minTroops[indexOfTroopsBuildOrder[i]] * thresholdIndex)))
-                if (build(rc, troopTypes[indexOfTroopsBuildOrder[i]]))
-                    break;
+        int round = rc.getRoundNum();
 
-        if (standardAnchors < MIN_STANDARD_ANCHOR)
+        if (round > 200 && standardAnchors < MIN_STANDARD_ANCHOR) {
             if (rc.canBuildAnchor(Anchor.STANDARD)) {
-                // If we can build an anchor do it!
-                // System.out.println("SUCCESSFULLY built ANCHOR!!");
                 rc.buildAnchor(Anchor.STANDARD);
                 rc.setIndicatorString("Building anchor! " + rc.getNumAnchors(Anchor.STANDARD));
             }
+        }
+        if (troopsAlive[Index.AMPLIFIER.getIndex()] < minTroops[Index.AMPLIFIER.getIndex()])
+            build(rc, RobotType.AMPLIFIER);
+        if (mana >= 60)
+            build(rc, RobotType.CARRIER);
+        if (adamantium >= 50)
+            build(rc, RobotType.CARRIER);
+
     }
 
     static boolean build(RobotController rc, RobotType type) throws GameActionException {

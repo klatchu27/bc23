@@ -4,6 +4,7 @@ import battlecode.common.*;
 
 import java.util.Random;
 import java.util.ArrayList;
+import java.util.Collections;
 
 public class Launcher {
 
@@ -19,7 +20,7 @@ public class Launcher {
             Direction.NORTHWEST,
     };
 
-    static MapLocation ownIslandLoc = null, enemyIslandLoc = null;
+    static MapLocation ownIslandLoc = null, prevOwnIslandLoc = null;
     static MapLocation reinforcementLoc = null;
 
     /**
@@ -59,15 +60,35 @@ public class Launcher {
         // go toward owned islands
         if (ownIslandLoc == null) {
             ArrayList<MapLocation> ownIslandLocs = Communication.getIslandLocs(rc, 1);
-            if (ownIslandLocs.size() > 0)
-                ownIslandLoc = ownIslandLocs.get(rng.nextInt(ownIslandLocs.size()));
+            Collections.shuffle(ownIslandLocs);
+            for (int i = ownIslandLocs.size(); --i >= 0;) {
+                if (prevOwnIslandLoc == null || ownIslandLocs.get(i).equals(prevOwnIslandLoc) == false) {
+                    ownIslandLoc = ownIslandLocs.get(i);
+                    break;
+                }
+            }
         }
 
         if (ownIslandLoc != null) {
             rc.setIndicatorString("protect target ownIslandLoc:" + ownIslandLoc);
             Pathing.walkTowards(rc, ownIslandLoc);
-            if (rc.getLocation().distanceSquaredTo(ownIslandLoc) < 5)
-                ownIslandLoc = null;
+            if (rc.getLocation().distanceSquaredTo(ownIslandLoc) < 5) {
+
+                RobotInfo[] ownTroops = rc.senseNearbyRobots(ownIslandLoc, -1, rc.getTeam());
+                RobotInfo[] enemyTroops = rc.senseNearbyRobots(ownIslandLoc, -1, rc.getTeam().opponent());
+                int ownCount = 0, enemyCount = 0;
+                for (RobotInfo r : ownTroops)
+                    if (r.getType() == RobotType.LAUNCHER)
+                        ownCount++;
+                for (RobotInfo r : enemyTroops)
+                    if (r.getType() == RobotType.LAUNCHER)
+                        enemyCount++;
+                if ((ownCount >= 4 && enemyCount == 0) || (ownCount - enemyCount) >= 2) {
+                    System.out.printf("ISLAND SECURE:%d,%d \n", ownIslandLoc.x, ownIslandLoc.y);
+                    prevOwnIslandLoc = ownIslandLoc;
+                    ownIslandLoc = null;
+                }
+            }
             return;
         }
 
@@ -78,6 +99,7 @@ public class Launcher {
             rc.setIndicatorString(
                     String.format("closest enemy comms loc: (%d,%d)", targetLocation.x, targetLocation.y));
             Pathing.walkTowards(rc, targetLocation);
+            return;
         }
 
         // Also try to move randomly.
