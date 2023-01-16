@@ -99,7 +99,7 @@ public strictfp class HeadQuarters {
         if (troopsAlive[3] < minTroops[3] && 50 * troopsBuilt[3] < round * maxTroopsBuilt[3] && rc.isActionReady())
             build(rc, RobotType.AMPLIFIER);
 
-        if (mana >= 60 && rc.isActionReady())
+        if (mana >= 60 && rc.isActionReady() && round % 2 == 0)
             build(rc, RobotType.LAUNCHER);
         if (adamantium >= 50 && rc.isActionReady())
             build(rc, RobotType.CARRIER);

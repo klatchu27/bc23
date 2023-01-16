@@ -80,17 +80,31 @@ public strictfp class Communication {
                 }
                 writeSharedArray(rc, 0, rc.getRoundNum() % 2);
 
-                for (int i = -1; ++i < NUM_TYPES;) {
-                    if (readSharedArray(rc, thisRound * NUM_TYPES + i + 1) != 0) {
-                        writeSharedArray(rc, thisRound * NUM_TYPES + i + 1, 0);
+                for (int i = 1; i <= NUM_TYPES; i++) {
+                    int countAlive = readSharedArray(rc, i);
+                    if (thisRound % 2 == 0) {
+                        if (countAlive % 256 != 0) {
+                            writeSharedArray(rc, i, (countAlive / 256) * 256);
+                        }
+                    } else {
+                        if ((countAlive / 256) != 0) {
+                            writeSharedArray(rc, i, countAlive % 256);
+                        }
                     }
                 }
 
             }
 
             // Increment alive counter
-            final int arrayIdx = (rc.getRoundNum() % 2) * NUM_TYPES + typeIdx + 1;
-            writeSharedArray(rc, arrayIdx, readSharedArray(rc, arrayIdx) + 1);
+            final int arrayIdx = typeIdx + 1;
+            int countAlive = readSharedArray(rc, arrayIdx);
+            if (rc.getRoundNum() % 2 == 0) {
+                int newVal = ((countAlive % 256) + 1) % 256;
+                writeSharedArray(rc, arrayIdx, ((countAlive / 256) * 256) + newVal);
+            } else {
+                int newVal = ((countAlive / 256) + 1) % 256;
+                writeSharedArray(rc, arrayIdx, newVal * 256 + (countAlive % 256));
+            }
 
         } catch (GameActionException e) {
             e.printStackTrace();
@@ -100,10 +114,14 @@ public strictfp class Communication {
     static int getAlive(RobotController rc, RobotType type) {
         final int typeIdx = typeToIndex(type);
 
-        // Read from previous write cycle
-        final int arrayIdx = ((rc.getRoundNum() + 1) % 2) * NUM_TYPES + typeIdx + 1;
+        // Read from PREVIOUS write cycle
+        final int arrayIdx = typeIdx + 1;
         try {
-            return readSharedArray(rc, arrayIdx);
+            int aliveCount = readSharedArray(rc, arrayIdx);
+            if (rc.getRoundNum() % 2 == 0)
+                return aliveCount / 256;
+            else
+                return aliveCount % 256;
         } catch (GameActionException e) {
             e.printStackTrace();
             return 0;
