@@ -116,6 +116,14 @@ public strictfp class HeadQuarters {
                 return true;
             }
         }
+        MapLocation[] spawnLocations = rc.getAllLocationsWithinRadiusSquared(curLoc, 9);
+        for (int i = spawnLocations.length; --i >= 0;) {
+            if (rc.canBuildRobot(type, spawnLocations[i])) {
+                troopsAlive[typeToIndex(type)]++;
+                troopsBuilt[typeToIndex(type)]++;
+                return true;
+            }
+        }
         return false;
     }
 
